@@ -1,0 +1,62 @@
+[package]
+name = "launcher"
+default-run = "launcher"
+version = "0.2.46"
+description = "Ramsgate Reborn launcher — sign in, verify your install, and play Dauntless"
+authors = ["Ramsgate Reborn"]
+edition = "2021"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Afterlife-Interactive/ramsgate-reborn-launcher"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "launcher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+# Admin launcher build only: adds the Admin tab's native request command (see src/commands/admin.rs).
+admin = []
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+sha2 = "0.11.0"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-deep-link = "2.4.9"
+tauri-plugin-dialog = "2.7.1"
+tauri-plugin-single-instance = "2.4.2"
+tauri-plugin-window-state = "2.4.1"
+keyring = "4.1.4"
+url = "2.5.8"
+sha2 = "0.11.0"
+tar = "0.4"
+base64 = "0.22"
+aes-gcm = "0.10"
+ed25519-dalek = "2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+dunce = "1.0.5"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
+tauri-plugin-process = "2"
+
+[target.'cfg(windows)'.dependencies]
+# Same versions tauri already pulls in (see Cargo.lock): used only to turn off the browser shortcut keys in the release webview.
+webview2-com = "0.38"
+windows = "0.61"
+
+[target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
+tauri-plugin-updater = "2.10.1"
+
+# Release builds: whole-program optimization and no symbol names, which also makes the binary harder to read.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

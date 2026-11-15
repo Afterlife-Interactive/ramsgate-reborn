@@ -1,0 +1,274 @@
+@import "tailwindcss";
+@import "@fontsource-variable/outfit";
+
+/* Every screen reads these tokens; the values come from the active theme below. Dark glass over full-bleed art:
+   surfaces are translucent, text is light, and the accent follows the theme's art. */
+@theme {
+  --color-bg: var(--rr-bg);
+  --color-surface: var(--rr-glass);
+  --color-surface-raised: var(--rr-glass-strong);
+  --color-border: var(--rr-line);
+  --color-border-strong: var(--rr-line-strong);
+
+  --color-ink: var(--rr-deep);
+  --color-ink-soft: var(--rr-glass-strong);
+  --color-ink-line: var(--rr-line-strong);
+  --color-on-ink: oklch(0.98 0.005 var(--rr-hue));
+  --color-on-ink-muted: oklch(0.8 0.03 var(--rr-hue));
+  --color-cta: var(--rr-accent);
+
+  --color-accent: var(--rr-accent);
+  --color-accent-hover: var(--rr-accent-hover);
+  --color-accent-muted: var(--rr-accent-wash);
+  --color-accent-faint: var(--rr-accent-faint);
+  --color-glow: var(--rr-glow);
+
+  --color-text: oklch(0.97 0.008 var(--rr-hue));
+  --color-text-muted: oklch(0.82 0.025 var(--rr-hue));
+  --color-text-faint: oklch(0.66 0.03 var(--rr-hue));
+
+  --color-danger: oklch(0.74 0.16 25);
+  --color-danger-muted: oklch(0.32 0.08 25 / 0.55);
+  --color-online: oklch(0.8 0.16 150);
+
+  --font-sans: "Outfit Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Outfit Variable", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+:root,
+:root[data-theme="nightshade"] {
+  --rr-hue: 300;
+  --rr-bg: oklch(0.14 0.03 295);
+  --rr-deep: oklch(0.12 0.03 295);
+  --rr-accent: oklch(0.6 0.2 300);
+  --rr-accent-hover: oklch(0.66 0.2 300);
+  --rr-glow: oklch(0.72 0.19 305);
+}
+:root[data-theme="tide"] {
+  --rr-hue: 45;
+  --rr-bg: oklch(0.2 0.05 45);
+  --rr-deep: oklch(0.16 0.045 45);
+  --rr-accent: oklch(0.62 0.15 48);
+  --rr-accent-hover: oklch(0.68 0.15 48);
+  --rr-glow: oklch(0.78 0.14 55);
+}
+:root[data-theme="verdant"] {
+  --rr-hue: 165;
+  --rr-bg: oklch(0.17 0.025 170);
+  --rr-deep: oklch(0.14 0.025 170);
+  --rr-accent: oklch(0.56 0.11 160);
+  --rr-accent-hover: oklch(0.62 0.11 160);
+  --rr-glow: oklch(0.8 0.12 160);
+}
+:root[data-theme="cinder"] {
+  --rr-hue: 70;
+  --rr-bg: oklch(0.15 0.01 70);
+  --rr-deep: oklch(0.12 0.01 70);
+  --rr-accent: oklch(0.6 0.14 60);
+  --rr-accent-hover: oklch(0.66 0.14 60);
+  --rr-glow: oklch(0.84 0.15 85);
+}
+:root[data-theme="koshai"] {
+  --rr-hue: 135;
+  --rr-bg: oklch(0.2 0.05 135);
+  --rr-deep: oklch(0.16 0.045 135);
+  --rr-accent: oklch(0.66 0.19 135);
+  --rr-accent-hover: oklch(0.72 0.19 135);
+  --rr-glow: oklch(0.84 0.18 130);
+}
+:root[data-theme="reza"] {
+  --rr-hue: 5;
+  --rr-bg: oklch(0.2 0.06 5);
+  --rr-deep: oklch(0.16 0.055 5);
+  --rr-accent: oklch(0.6 0.2 5);
+  --rr-accent-hover: oklch(0.66 0.2 5);
+  --rr-glow: oklch(0.78 0.16 0);
+}
+
+:root[data-theme="frostbite"] {
+  --rr-hue: 240;
+  --rr-bg: oklch(0.2 0.06 245);
+  --rr-deep: oklch(0.16 0.055 245);
+  --rr-accent: oklch(0.6 0.13 215);
+  --rr-accent-hover: oklch(0.66 0.13 215);
+  --rr-glow: oklch(0.85 0.12 205);
+}
+
+:root[data-theme="drask"] {
+  --rr-hue: 115;
+  --rr-bg: oklch(0.2 0.05 115);
+  --rr-deep: oklch(0.16 0.045 115);
+  --rr-accent: oklch(0.6 0.15 115);
+  --rr-accent-hover: oklch(0.66 0.15 115);
+  --rr-glow: oklch(0.88 0.17 115);
+}
+
+:root[data-theme="kharabak"] {
+  --rr-hue: 323;
+  --rr-bg: oklch(0.2 0.06 323);
+  --rr-deep: oklch(0.16 0.055 323);
+  --rr-accent: oklch(0.6 0.2 323);
+  --rr-accent-hover: oklch(0.66 0.2 323);
+  --rr-glow: oklch(0.8 0.17 323);
+}
+
+:root[data-theme="embermane"] {
+  --rr-hue: 25;
+  --rr-bg: oklch(0.19 0.06 25);
+  --rr-deep: oklch(0.15 0.055 25);
+  --rr-accent: oklch(0.58 0.19 25);
+  --rr-accent-hover: oklch(0.64 0.19 25);
+  --rr-glow: oklch(0.76 0.16 25);
+}
+
+:root[data-theme="phaelanx"] {
+  --rr-hue: 38;
+  --rr-bg: oklch(0.2 0.06 38);
+  --rr-deep: oklch(0.16 0.055 38);
+  --rr-accent: oklch(0.64 0.18 38);
+  --rr-accent-hover: oklch(0.7 0.18 38);
+  --rr-glow: oklch(0.8 0.16 38);
+}
+
+:root[data-theme="riftstalker"] {
+  --rr-hue: 288;
+  --rr-bg: oklch(0.19 0.06 288);
+  --rr-deep: oklch(0.15 0.055 288);
+  --rr-accent: oklch(0.58 0.2 288);
+  --rr-accent-hover: oklch(0.64 0.2 288);
+  --rr-glow: oklch(0.74 0.18 288);
+}
+
+:root[data-theme="valomyr"] {
+  --rr-hue: 268;
+  --rr-bg: oklch(0.19 0.06 268);
+  --rr-deep: oklch(0.15 0.055 268);
+  --rr-accent: oklch(0.58 0.2 268);
+  --rr-accent-hover: oklch(0.64 0.2 268);
+  --rr-glow: oklch(0.76 0.17 268);
+}
+
+:root[data-theme="sahvyt"] {
+  --rr-hue: 100;
+  --rr-bg: oklch(0.2 0.05 100);
+  --rr-deep: oklch(0.16 0.045 100);
+  --rr-accent: oklch(0.62 0.15 100);
+  --rr-accent-hover: oklch(0.68 0.15 100);
+  --rr-glow: oklch(0.86 0.17 100);
+}
+
+/* Derived from the theme values above, so a new theme only sets hue, backgrounds and accent. */
+:root {
+  --rr-glass: oklch(0.2 0.03 var(--rr-hue) / 0.62);
+  --rr-glass-strong: oklch(0.28 0.04 var(--rr-hue) / 0.7);
+  --rr-line: oklch(1 0 0 / 0.1);
+  --rr-line-strong: oklch(1 0 0 / 0.22);
+  --rr-accent-wash: color-mix(in oklch, var(--rr-accent) 28%, transparent);
+  --rr-accent-faint: color-mix(in oklch, var(--rr-accent) 14%, transparent);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-glow);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.16);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Headings: upright, tight and heavy. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+/* Glass panel: what every card and page sits on. */
+.glass {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+/* Readable on the left, art on the right, darker at the bottom where the dock sits. */
+.backdrop-scrim {
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--rr-deep) 92%, transparent) 0%, color-mix(in oklch, var(--rr-deep) 55%, transparent) 42%, transparent 72%),
+    linear-gradient(0deg, color-mix(in oklch, var(--rr-deep) 85%, transparent) 0%, transparent 32%);
+}
+
+/* The Play sigil's slow breathing ring. */
+@keyframes sigil-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-glow) 45%, transparent), 0 18px 50px -12px var(--color-glow); }
+  50% { box-shadow: 0 0 0 14px color-mix(in oklch, var(--color-glow) 0%, transparent), 0 18px 60px -10px var(--color-glow); }
+}
+.sigil-idle {
+  animation: sigil-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes sigil-spin {
+  to { transform: rotate(360deg); }
+}
+.sigil-spin {
+  animation: sigil-spin 2.4s linear infinite;
+}
+
+@keyframes loading-slide {
+  0% { transform: translateX(-110%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(220%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Switching tabs: the new page rises in softly instead of snapping. */
+@keyframes tab-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.tab-enter {
+  animation: tab-enter 260ms var(--ease-out-quart) both;
+}
