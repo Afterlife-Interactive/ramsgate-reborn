@@ -175,7 +175,7 @@ export function describeAuthError(error: unknown): string {
       AUTH_DISCORD_CANCELLED: "Discord sign-in was cancelled.",
       AUTH_DISCORD_ALREADY_LINKED: "That Discord account is already linked to another Ramsgate Reborn account. Use the account it was first linked to, or ask for help on the support site.",
       AUTH_PASSWORD_DISABLED: "This server only accepts Discord sign-in.",
-      GAME_BUILD_UNSUPPORTED: "This copy of Dauntless is not the version Ramsgate Reborn needs. Download the game from the Play tab into a new empty folder.",
+      GAME_BUILD_UNSUPPORTED: "The game could not be started. Either this game folder is not the Ramsgate Reborn game, or the launcher is too old: update the launcher, and download the Ramsgate Reborn game from the Play tab if the problem stays.",
     };
     return known[error.code] ?? error.message;
   }

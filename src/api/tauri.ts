@@ -24,6 +24,11 @@ export async function findExistingInstall(): Promise<string | null> {
   return invoke<string | null>("find_existing_install");
 }
 
+/** For a game folder the server refused: forgets the saved location (deletes nothing). False when it is the game the launcher downloaded itself. */
+export async function forgetWrongGameFolder(): Promise<boolean> {
+  return invoke<boolean>("forget_wrong_game_folder");
+}
+
 /** Saves the install found above. Call only after the player confirms. */
 export async function useExistingInstall(): Promise<InstallStatus> {
   return invoke<InstallStatus>("use_existing_install");

@@ -178,6 +178,26 @@ pub async fn use_existing_install(app: AppHandle) -> Result<InstallStatus, Strin
     Ok(build_status(&exe))
 }
 
+/// True when the saved game is one this launcher downloaded itself (it lies inside the recorded install folder).
+fn is_managed_install(exe: &std::path::Path, install_dir: Option<&std::path::Path>) -> bool {
+    install_dir.map_or(false, |dir| exe.starts_with(dir))
+}
+
+/// For a game folder the server refused (an old Dauntless or Dauntless Revived copy): forgets the saved location so
+/// Home offers the download again. Never deletes anything. Returns false, and changes nothing, when the saved game
+/// is the one the launcher downloaded itself: that one must be repaired or uninstalled, not forgotten.
+#[tauri::command]
+pub fn forget_wrong_game_folder(app: AppHandle) -> Result<bool, String> {
+    if let Some(exe) = paths::load_saved_exe_path(&app) {
+        let dir = paths::load_install_dir(&app);
+        if is_managed_install(&exe, dir.as_deref()) {
+            return Ok(false);
+        }
+    }
+    paths::clear_install(&app)?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,6 +207,15 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn only_a_game_inside_the_recorded_install_folder_is_managed() {
+        use std::path::Path;
+        let dir = Path::new(r"D:\Ramsgate Reborn\Game");
+        assert!(is_managed_install(Path::new(r"D:\Ramsgate Reborn\Game\Archon\Binaries\Win64\Dauntless-Win64-Shipping.exe"), Some(dir)));
+        assert!(!is_managed_install(Path::new(r"C:\Steam\Dauntless\Dauntless-Win64-Shipping.exe"), Some(dir)));
+        assert!(!is_managed_install(Path::new(r"C:\Steam\Dauntless\Dauntless-Win64-Shipping.exe"), None));
     }
 
     #[test]

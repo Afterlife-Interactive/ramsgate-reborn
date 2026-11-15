@@ -1,10 +1,7 @@
-use std::os::windows::process::CommandExt;
 use std::path::Path;
-use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 const GAME_EXE_NAME: &str = "Dauntless-Win64-Shipping.exe";
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// The game this launcher started in this run. The background thread in `spawn_game` waits on the real process
 /// handle, so this knows the moment the game exits, without guessing from the process list (which can still hold a
@@ -64,7 +61,7 @@ struct SendableHandle(windows_sys::Win32::Foundation::HANDLE);
 unsafe impl Send for SendableHandle {}
 
 /// Process ids of every running process with this image name, from a Toolhelp snapshot. No child process, a few
-/// hundred microseconds. `None` when the snapshot cannot be taken (the caller then falls back to PowerShell).
+/// hundred microseconds. `None` when the snapshot cannot be taken.
 fn pids_named(name: &str) -> Option<Vec<u32>> {
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::{
@@ -91,44 +88,76 @@ fn pids_named(name: &str) -> Option<Vec<u32>> {
     }
 }
 
-/// Which of the game executable's processes are clients (not `-server` dedicated servers), by PowerShell. Only asked
-/// when a process id has not been classified yet.
-fn client_pids_via_powershell() -> Result<Vec<u32>, String> {
-    // Ramsgate and Training Dojo are dedicated-server processes using the same
-    // executable as the client. `tasklist` only exposes the image name, so it
-    // makes a healthy server look like a running game client. Inspect the
-    // command line and exclude UE's explicit `-server` launch mode instead.
-    let query = format!(
-        "$processes = Get-CimInstance Win32_Process -Filter \"Name='{GAME_EXE_NAME}'\"; \
-         $client = $processes | Where-Object {{ $_.CommandLine -notmatch '(^|\\s)-server(\\s|$)' }}; \
-         $client | ForEach-Object {{ $_.ProcessId }}"
-    );
+/// True when the command line is a dedicated server (`-server`). Ramsgate and Training Dojo servers run the same
+/// executable as the client, so the image name alone would make a healthy server look like a running game client.
+pub(crate) fn is_server_command_line(command_line: &str) -> bool {
+    command_line.split_whitespace().any(|token| token.eq_ignore_ascii_case("-server"))
+}
 
-    let output = Command::new("powershell.exe")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &query])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| format!("Couldn't check running processes: {e}"))?;
+/// Opens a process for reading its command line or image path only. `None` when Windows refuses (another user's or
+/// an elevated process).
+fn open_for_query(pid: u32) -> Option<windows_sys::Win32::Foundation::HANDLE> {
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() { None } else { Some(handle) }
+}
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(format!("Couldn't check running processes: {stderr}"));
+/// The command line of a running process, read with the documented NtQueryInformationProcess call
+/// (ProcessCommandLineInformation). No child process, no script host.
+pub(crate) fn command_line_of(pid: u32) -> Option<String> {
+    use windows_sys::Wdk::System::Threading::NtQueryInformationProcess;
+    use windows_sys::Win32::Foundation::{CloseHandle, UNICODE_STRING};
+    const PROCESS_COMMAND_LINE_INFORMATION: i32 = 60;
+    let handle = open_for_query(pid)?;
+    unsafe {
+        let mut needed: u32 = 0;
+        NtQueryInformationProcess(handle, PROCESS_COMMAND_LINE_INFORMATION, std::ptr::null_mut(), 0, &mut needed);
+        if needed == 0 || needed > 1 << 20 {
+            CloseHandle(handle);
+            return None;
+        }
+        // u64 words keep the buffer aligned for the UNICODE_STRING header.
+        let mut buffer = vec![0u64; (needed as usize + 7) / 8];
+        let status = NtQueryInformationProcess(handle, PROCESS_COMMAND_LINE_INFORMATION, buffer.as_mut_ptr() as *mut _, needed, &mut needed);
+        CloseHandle(handle);
+        if status < 0 {
+            return None;
+        }
+        let header = &*(buffer.as_ptr() as *const UNICODE_STRING);
+        if header.Buffer.is_null() {
+            return Some(String::new());
+        }
+        let units = std::slice::from_raw_parts(header.Buffer, header.Length as usize / 2);
+        Some(String::from_utf16_lossy(units))
     }
+}
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut pids = Vec::new();
-    for line in stdout.lines().map(str::trim).filter(|l| !l.is_empty()) {
-        pids.push(
-            line.parse::<u32>()
-                .map_err(|_| format!("Couldn't determine whether Dauntless is running: {line}"))?,
-        );
+/// The full path of a running process's executable.
+pub(crate) fn image_path_of(pid: u32) -> Option<String> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::QueryFullProcessImageNameW;
+    let handle = open_for_query(pid)?;
+    unsafe {
+        let mut buffer = vec![0u16; 32768];
+        let mut len = buffer.len() as u32;
+        let ok = QueryFullProcessImageNameW(handle, 0, buffer.as_mut_ptr(), &mut len);
+        CloseHandle(handle);
+        if ok == 0 { None } else { Some(String::from_utf16_lossy(&buffer[..len as usize])) }
     }
-    Ok(pids)
+}
+
+/// Which of these game-executable processes are clients (not `-server` dedicated servers). A process whose command
+/// line cannot be read counts as a client, the safe side for "is the game running".
+fn client_pids_among(present: &[u32]) -> Vec<u32> {
+    present
+        .iter()
+        .copied()
+        .filter(|pid| command_line_of(*pid).map_or(true, |line| !is_server_command_line(&line)))
+        .collect()
 }
 
 /// Is any of `present` a client process? `known` remembers, per process id, whether it was a client, so a game that
-/// keeps running is classified once instead of by a new PowerShell every poll (the launcher polls every 8 seconds,
-/// and each PowerShell cost a third of a second or more of CPU while the game was running). Entries for processes
+/// keeps running is classified once instead of re-reading command lines every poll (the launcher polls every 8 seconds). Entries for processes
 /// that are gone are dropped. `lookup` is only called when an id has not been seen before and returns the client ids.
 fn any_client(
     present: &[u32],
@@ -168,67 +197,36 @@ fn format_leftover_note(game: usize, anti_cheat: usize) -> String {
 }
 
 pub fn is_game_running() -> Result<bool, String> {
-    if let Some(present) = pids_named(GAME_EXE_NAME) {
-        let mut guard = CLIENT_PIDS.lock().unwrap_or_else(|e| e.into_inner());
-        return any_client(&present, guard.get_or_insert_with(Default::default), client_pids_via_powershell);
-    }
-    // No snapshot available: the old way, one PowerShell per call.
-    Ok(!client_pids_via_powershell()?.is_empty())
+    let present = pids_named(GAME_EXE_NAME).ok_or_else(|| "Couldn't check running processes.".to_string())?;
+    let mut guard = CLIENT_PIDS.lock().unwrap_or_else(|e| e.into_inner());
+    any_client(&present, guard.get_or_insert_with(Default::default), || Ok(client_pids_among(&present)))
 }
 
 /// Runtime DLL updates must wait for both client and dedicated-server
 /// processes because either one can have the DLL mapped and locked.
 pub fn is_dauntless_process_running() -> Result<bool, String> {
-    if let Some(present) = pids_named(GAME_EXE_NAME) {
-        if present.is_empty() {
-            return Ok(false);
-        }
+    let present = pids_named(GAME_EXE_NAME).ok_or_else(|| "Couldn't check Dauntless processes.".to_string())?;
+    Ok(!present.is_empty())
+}
+
+/// True when `image_path` lies directly inside `directory` (case-insensitive, either slash).
+pub(crate) fn path_is_inside(image_path: &str, directory: &str) -> bool {
+    let norm = |s: &str| s.replace('/', "\\").to_ascii_lowercase();
+    let mut dir = norm(directory);
+    while dir.ends_with('\\') {
+        dir.pop();
     }
-    let query = format!(
-        "$processes = Get-CimInstance Win32_Process -Filter \"Name='{GAME_EXE_NAME}'\"; if ($null -ne $processes) {{ 'true' }} else {{ 'false' }}"
-    );
-    let output = Command::new("powershell.exe")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &query])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| format!("Couldn't check Dauntless processes: {e}"))?;
-    if !output.status.success() {
-        return Err("Couldn't check Dauntless processes.".to_string());
-    }
-    match String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_lowercase()
-        .as_str()
-    {
-        "true" => Ok(true),
-        "false" => Ok(false),
-        other => Err(format!(
-            "Couldn't determine Dauntless process state: {other}"
-        )),
-    }
+    dir.push('\\');
+    norm(image_path).starts_with(&dir)
 }
 
 /// Like `is_dauntless_process_running`, but only counts processes that run from `directory`. A game or server started
 /// from another folder (another install, a local test server) does not hold this folder's DLL, so it must not block
 /// updating it.
 pub fn is_dauntless_process_running_from(directory: &std::path::Path) -> Result<bool, String> {
-    let dir = directory.display().to_string().replace('\'', "''");
-    let query = format!(
-        r#"$d = '{dir}'.TrimEnd([char]92) + [string][char]92; $n = @(Get-CimInstance Win32_Process -Filter "Name='{GAME_EXE_NAME}'" | Where-Object {{ $_.ExecutablePath -and $_.ExecutablePath.StartsWith($d, [System.StringComparison]::OrdinalIgnoreCase) }}).Count; if ($n -gt 0) {{ 'true' }} else {{ 'false' }}"#
-    );
-    let output = Command::new("powershell.exe")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &query])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| format!("Couldn't check Dauntless processes: {e}"))?;
-    if !output.status.success() {
-        return Err("Couldn't check Dauntless processes.".to_string());
-    }
-    match String::from_utf8_lossy(&output.stdout).trim().to_lowercase().as_str() {
-        "true" => Ok(true),
-        "false" => Ok(false),
-        other => Err(format!("Couldn't determine Dauntless process state: {other}")),
-    }
+    let present = pids_named(GAME_EXE_NAME).ok_or_else(|| "Couldn't check Dauntless processes.".to_string())?;
+    let dir = directory.display().to_string();
+    Ok(present.iter().any(|pid| image_path_of(*pid).map_or(false, |path| path_is_inside(&path, &dir))))
 }
 
 pub struct LaunchIdentity {
@@ -472,6 +470,39 @@ pub fn spawn_game(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::windows::process::CommandExt;
+
+    #[test]
+    fn server_command_lines_are_told_from_clients() {
+        assert!(is_server_command_line(r#""C:\g\Dauntless-Win64-Shipping.exe" -server -log"#));
+        assert!(is_server_command_line("x.exe -SERVER"));
+        assert!(!is_server_command_line(r#""C:\g\Dauntless-Win64-Shipping.exe" -epicapp=Fortnite"#));
+        assert!(!is_server_command_line("x.exe -serverlist"));
+    }
+
+    #[test]
+    fn a_path_is_inside_a_folder_only_when_it_is_below_it() {
+        assert!(path_is_inside(r"C:\Games\RR\Archon\Binaries\Win64\Dauntless-Win64-Shipping.exe", r"c:\games\rr\"));
+        assert!(path_is_inside(r"C:\Games\RR\x.exe", r"C:\Games\RR"));
+        assert!(!path_is_inside(r"C:\Games\RR2\x.exe", r"C:\Games\RR"));
+    }
+
+    #[test]
+    fn reads_the_command_line_and_image_path_of_a_running_process() {
+        let mut child = std::process::Command::new(r"C:\Windows\System32\ping.exe")
+            .args(["-n", "6", "127.0.0.1", "-server"])
+            .creation_flags(0x0800_0000)
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .expect("start ping");
+        let line = command_line_of(child.id());
+        let path = image_path_of(child.id());
+        let _ = child.kill();
+        let _ = child.wait();
+        let line = line.expect("command line");
+        assert!(line.to_ascii_lowercase().contains("ping") && is_server_command_line(&line), "got {line}");
+        assert!(path.expect("image path").to_ascii_lowercase().ends_with("ping.exe"));
+    }
 
     #[test]
     fn nothing_launched_reads_none() {

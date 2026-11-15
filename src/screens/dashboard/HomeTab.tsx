@@ -4,9 +4,10 @@ import { useAuth } from "../../auth/AuthContext";
 import { usePolicy } from "../../policy/PolicyContext";
 import { listen } from "@tauri-apps/api/event";
 import { stillRunning, RUNNING_POLL_MS } from "../../launch/runningPhase";
-import { getInstallStatus, pickInstallPath, isGameRunning, launchedGameState, secureLaunch, setLauncherMinimized, queuePoll, queueLeave, checkRuntimeUpdate, installRuntimeUpdate, getGameManifest, findExistingInstall, useExistingInstall, downloadGame, drClaim, drChoiceStatus, pickDrKeyFile, setDrKey, type DrClaimStatus, type InstallStatus, type GameManifest, type GameDownloadProgress } from "../../api/tauri";
+import { getInstallStatus, pickInstallPath, isGameRunning, launchedGameState, secureLaunch, setLauncherMinimized, queuePoll, queueLeave, checkRuntimeUpdate, installRuntimeUpdate, getGameManifest, forgetWrongGameFolder, downloadGame, drClaim, drChoiceStatus, pickDrKeyFile, setDrKey, type DrClaimStatus, type InstallStatus, type GameManifest, type GameDownloadProgress } from "../../api/tauri";
 import { sanitizeError } from "../../lib/sanitize";
-import { downloadButtonLabel, downloadNeedsLine, foundInstallText, shouldOfferFoundInstall } from "../../lib/downloadInfo";
+import { downloadButtonLabel, downloadNeedsLine } from "../../lib/downloadInfo";
+import { isWrongFolderMessage, OWN_DOWNLOAD_REFUSED_TEXT, WRONG_FOLDER_BUTTON } from "../../lib/wrongFolder";
 import { viewFor, viewForClaimCode, showClaimNotice, DR_TEXT, type DrChoiceAnswer, type DrChoiceView } from "../../lib/drChoice";
 import { DrChoiceScreen } from "./DrChoiceScreen";
 import { DrQueuePanel } from "./DrQueuePanel";
@@ -102,10 +103,8 @@ export function HomeTab() {
   const [launcherVersion, setLauncherVersion] = useState<string>("");
   const [gameOffer, setGameOffer] = useState<GameManifest | null>(null);
   const [download, setDownload] = useState<GameDownloadProgress | null>(null);
-  // An install found in the usual folders. Only a suggestion: nothing is saved until the player says yes.
-  const [foundInstall, setFoundInstall] = useState<string | null>(null);
-  const [foundDismissed, setFoundDismissed] = useState(false);
-  const foundProbed = useRef(false);
+  // Set when the server refused the saved game folder (not the Ramsgate Reborn game): the download is offered next to it.
+  const [wrongFolder, setWrongFolder] = useState(false);
   const [drState, setDrState] = useState<DrClaimStatus | "checking" | "error" | null>(null);
   // Set only by the player pressing the Replace choice in this session; never remembered.
   const [drConfirming, setDrConfirming] = useState(false);
@@ -377,28 +376,6 @@ export function HomeTab() {
     getGameManifest().then((offer) => { if (mountedRef.current) setGameOffer(offer); }).catch(() => {});
   }, []);
 
-  // Once, and only while no game is set: a read-only look at the usual Steam, Epic and Dauntless folders.
-  useEffect(() => {
-    if (install === null || install.located || install.savedMissing || foundProbed.current) return;
-    foundProbed.current = true;
-    findExistingInstall().then((folder) => { if (mountedRef.current) setFoundInstall(folder); }).catch(() => {});
-  }, [install]);
-
-  const handleUseFound = useCallback(async () => {
-    setPhase({ status: "locating" });
-    try {
-      const status = await useExistingInstall();
-      if (mountedRef.current) {
-        setInstall(status);
-        setPhase({ status: "idle" });
-      }
-    } catch (err) {
-      if (mountedRef.current) {
-        setPhase({ status: "error", message: sanitizeError(typeof err === "string" ? err : undefined) || "We couldn't use that folder. Choose the folder that contains Archon." });
-      }
-    }
-  }, []);
-
   useEffect(() => {
     const unlisten = listen<GameDownloadProgress>("game-download-progress", (event) => {
       if (mountedRef.current) setDownload(event.payload);
@@ -421,6 +398,25 @@ export function HomeTab() {
       if (mountedRef.current) setDownload(null);
     }
   }, []);
+
+  // The saved folder was refused as not the Ramsgate Reborn game: forget it (no files are touched), then run the normal download.
+  const handleDownloadInstead = useCallback(async () => {
+    setPhase({ status: "locating" });
+    try {
+      const forgotten = await forgetWrongGameFolder();
+      if (!mountedRef.current) return;
+      if (!forgotten) {
+        setPhase({ status: "error", message: OWN_DOWNLOAD_REFUSED_TEXT });
+        return;
+      }
+      setWrongFolder(false);
+      setInstall(await getInstallStatus());
+    } catch {
+      if (mountedRef.current) setPhase({ status: "error", message: "We couldn't clear the saved game folder. Try again in a moment." });
+      return;
+    }
+    await handleDownload();
+  }, [handleDownload]);
 
   const handleLocate = useCallback(async () => {
     setPhase({ status: "locating" });
@@ -520,7 +516,9 @@ export function HomeTab() {
       if (mountedRef.current) setPhase({ status: "running" });
     } catch (err) {
       if (mountedRef.current) {
-        setPhase({ status: "error", message: sanitizeError(typeof err === "string" ? err : err instanceof Error ? err.message : undefined) || "Dauntless didn't start. Make sure it isn't already open and that your antivirus hasn't removed any game files, then press Play again." });
+        const text = sanitizeError(typeof err === "string" ? err : err instanceof Error ? err.message : undefined);
+        if (isWrongFolderMessage(text)) setWrongFolder(true);
+        setPhase({ status: "error", message: text || "Dauntless didn't start. Make sure it isn't already open and that your antivirus hasn't removed any game files, then press Play again." });
       }
     } finally {
       if (!launched) void setLauncherMinimized(false).catch(() => {});
@@ -583,7 +581,7 @@ export function HomeTab() {
             ? "Everything checks out. See you in Ramsgate."
             : install?.savedMissing
             ? "Dauntless isn't where it was before. It may have been moved or deleted. Choose the folder it's in now."
-            : "Ramsgate Reborn needs the Dauntless game files in the right version. Download them here, or choose the folder you already have. It's the one that contains Archon."}
+            : "Ramsgate Reborn needs the Dauntless game files in the right version. Download them here, or choose the Ramsgate Reborn game folder if you already have it. It's the one that contains Archon."}
         </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-5">
@@ -636,13 +634,9 @@ export function HomeTab() {
 
             {located && <RegionReporter pingKey={regionPingKey} />}
 
-            {!located && canLocate && !gameRunning && download === null && shouldOfferFoundInstall(foundInstall, located, foundDismissed) && (
-              <div className="max-w-[44ch] text-[13px] text-text">
-                <p>{foundInstallText(foundInstall ?? "")}</p>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  <button onClick={handleUseFound} disabled={busy} className={solid}>Use this folder</button>
-                  <button onClick={() => setFoundDismissed(true)} disabled={busy} className={ghost}>No, thanks</button>
-                </div>
+            {located && wrongFolder && canLocate && !gameRunning && download === null && (
+              <div className="flex flex-wrap gap-3">
+                <button onClick={handleDownloadInstead} disabled={busy} className={solid}>{WRONG_FOLDER_BUTTON}</button>
               </div>
             )}
 

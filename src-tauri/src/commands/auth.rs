@@ -89,15 +89,30 @@ struct ErrorEnvelope {
 #[derive(Deserialize)]
 struct ErrorBody {
     code: Option<String>,
+    message: Option<String>,
+}
+
+/// Text for the server's GAME_BUILD_UNSUPPORTED. The server sends it both for a game folder whose exe is not the
+/// Ramsgate Reborn one and for a launcher that is too old, so the server's own wording tells them apart. The
+/// wrong-folder text starts with WRONG_FOLDER_TEXT_START, which the screen looks for to offer the download button.
+pub(crate) const WRONG_FOLDER_TEXT_START: &str = "This game folder is not the Ramsgate Reborn game";
+
+pub(crate) fn game_build_unsupported_text(server_message: Option<&str>) -> String {
+    let m = server_message.unwrap_or("").to_ascii_lowercase();
+    if m.contains("launcher is out of date") {
+        "Please update the launcher. This version is too old to start the game. Get the newest one from the Ramsgate Reborn website.".to_string()
+    } else if m.contains("installation isn't recognized") || m.contains("build isn't supported") {
+        format!("{WRONG_FOLDER_TEXT_START} (it looks like an old Dauntless or Dauntless Revived copy). Your account is fine.")
+    } else {
+        "The game could not be started. Either this game folder is not the Ramsgate Reborn game, or the launcher is too old: update the launcher from the Ramsgate Reborn website, and download the Ramsgate Reborn game if the problem stays.".to_string()
+    }
 }
 
 pub(crate) fn safe_api_error(response: reqwest::blocking::Response, fallback: &str) -> String {
     let status = response.status();
-    let code = response
-        .json::<ErrorEnvelope>()
-        .ok()
-        .and_then(|body| body.error)
-        .and_then(|error| error.code);
+    let error_body = response.json::<ErrorEnvelope>().ok().and_then(|body| body.error);
+    let server_message = error_body.as_ref().and_then(|e| e.message.clone());
+    let code = error_body.and_then(|error| error.code);
     match code.as_deref() {
         Some("AUTH_APPROVAL_PENDING") => {
             "Your closed-test access request is waiting for approval.".to_string()
@@ -118,9 +133,7 @@ pub(crate) fn safe_api_error(response: reqwest::blocking::Response, fallback: &s
         Some("AUTH_USERNAME_REQUIRED") => {
             "Choose your launcher username before playing.".to_string()
         }
-        Some("GAME_BUILD_UNSUPPORTED") => {
-            "This game copy is not the Ramsgate Reborn build (a Revival or modified copy). Repair only fixes the launcher files, so download the Ramsgate Reborn game into a new empty folder and use that one.".to_string()
-        }
+        Some("GAME_BUILD_UNSUPPORTED") => game_build_unsupported_text(server_message.as_deref()),
         _ => format!("{fallback} (server status {})", status.as_u16()),
     }
 }
@@ -563,5 +576,32 @@ mod channel_tests {
         assert_eq!(policy_url("https://x", Some("dev")), "https://x/launcher/v1/policy");
         assert_eq!(policy_url("https://x", Some("beta&x=1")), "https://x/launcher/v1/policy");
         assert_eq!(policy_url("https://x", None), "https://x/launcher/v1/policy");
+    }
+}
+
+#[cfg(test)]
+mod game_build_text_tests {
+    use super::*;
+
+    #[test]
+    fn an_unrecognised_exe_gets_the_wrong_folder_text() {
+        let t = game_build_unsupported_text(Some("This Dauntless installation isn't recognized. Verify or repair your installation."));
+        assert!(t.starts_with(WRONG_FOLDER_TEXT_START));
+        assert!(t.contains("Your account is fine."));
+        assert!(!t.contains("update the launcher"));
+    }
+
+    #[test]
+    fn an_old_launcher_gets_its_own_text() {
+        let t = game_build_unsupported_text(Some("This launcher is out of date. Please update it from the Ramsgate Reborn website."));
+        assert!(t.starts_with("Please update the launcher"));
+        assert!(!t.starts_with(WRONG_FOLDER_TEXT_START));
+    }
+
+    #[test]
+    fn an_unknown_wording_mentions_both_and_offers_no_button() {
+        let t = game_build_unsupported_text(None);
+        assert!(!t.starts_with(WRONG_FOLDER_TEXT_START));
+        assert!(t.contains("launcher") && t.contains("game folder"));
     }
 }

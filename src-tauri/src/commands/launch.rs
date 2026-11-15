@@ -211,7 +211,6 @@ fn secure_launch_steps(
         logs::append_launcher_log(session_dir, &format!("accepted the game's Terms of Service in {changed}"));
     }
     spawn_network_check(session_dir.to_path_buf());
-    spawn_connection_sampler(session_dir.to_path_buf());
 
     // Diagnostic flags only (VERBOSE_DIAG.flag) — not the actual access control (that's
     // fully server-side; see the channel check above and testerFeatures.ts). A failure here
@@ -330,24 +329,6 @@ fn write_game_files_listing(
     let _ = std::fs::write(session_dir.join("runtime-game-files.log"), out);
 }
 
-/// While the game starts up, records its open network connections every few seconds (remote address, port, state) in
-/// `runtime-game-connections.log`. A login that stalls shows up as a connection stuck in SynSent or one that never
-/// appears. Written line by line so a game that is closed early still leaves a usable file. Best effort; it never
-/// delays Play.
-fn spawn_connection_sampler(session_dir: std::path::PathBuf) {
-    std::thread::spawn(move || {
-        use std::os::windows::process::CommandExt;
-        let file = session_dir.join("runtime-game-connections.log").display().to_string().replace('\'', "''");
-        let script = format!(
-            "$ErrorActionPreference='SilentlyContinue';$f='{file}';for($i=0;$i -lt 30;$i++){{$t=Get-Date -Format 'HH:mm:ss';$p=Get-Process Dauntless-Win64-Shipping|Select-Object -First 1;if(-not $p){{Add-Content $f \"$t game not running\"}}else{{$c=Get-NetTCPConnection -OwningProcess $p.Id|Where-Object{{$_.RemoteAddress -notin '127.0.0.1','::1','0.0.0.0','::'}};$u=@(Get-NetUDPEndpoint -OwningProcess $p.Id).Count;Add-Content $f (\"$t cpu_s \"+[math]::Round($p.CPU,1)+\" udp $u tcp \"+(($c|ForEach-Object{{$_.RemoteAddress+':'+$_.RemotePort+' '+$_.State}}) -join '; '))}};Start-Sleep 3}}"
-        );
-        let _ = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", &script])
-            .creation_flags(0x0800_0000)
-            .output();
-    });
-}
-
 /// Runs a short connectivity check from this PC in the background (names resolved, our server and the real Epic hosts
 /// reached, with timings) and writes it beside the other session logs. Best effort; it never delays Play.
 fn spawn_network_check(session_dir: std::path::PathBuf) {
@@ -406,18 +387,6 @@ fn spawn_network_check(session_dir: std::path::PathBuf) {
         }
         let _ = std::fs::write(session_dir.join("runtime-network-check.log"), &out);
 
-        // Machine facts and how busy the game is, measured once it has had time to reach the stuck state.
-        std::thread::sleep(std::time::Duration::from_secs(25));
-        let script = "$ErrorActionPreference='SilentlyContinue';$os=Get-CimInstance Win32_OperatingSystem;'os '+$os.Caption+' build '+$os.BuildNumber+' ram_gb '+[math]::Round($os.TotalVisibleMemorySize/1MB,1)+' free_gb '+[math]::Round($os.FreePhysicalMemory/1MB,1);Get-CimInstance Win32_Processor|%{'cpu '+$_.Name+' cores '+$_.NumberOfCores+' threads '+$_.NumberOfLogicalProcessors+' mhz '+$_.CurrentClockSpeed+'/'+$_.MaxClockSpeed};Get-CimInstance Win32_VideoController|%{'gpu '+$_.Name+' driver '+$_.DriverVersion};Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct|%{'antivirus '+$_.displayName+' state '+$_.productState};Get-CimInstance Win32_PowerPlan -Namespace root/cimv2/power|?{$_.IsActive}|%{'powerplan '+$_.ElementName};$p=Get-Process Dauntless-Win64-Shipping;if($p){$a=$p.CPU;Start-Sleep 5;$p=Get-Process Dauntless-Win64-Shipping;'game cpu_seconds_in_5s '+[math]::Round($p.CPU-$a,2)+' threads '+$p.Threads.Count+' ws_mb '+[math]::Round($p.WorkingSet64/1MB)}else{'game not running'};Get-Process|sort CPU -desc|select -first 6|%{'top '+$_.ProcessName+' cpu_s '+[math]::Round($_.CPU)}";
-        use std::os::windows::process::CommandExt;
-        if let Ok(result) = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", script])
-            .creation_flags(0x0800_0000)
-            .output()
-        {
-            let _ = writeln!(out, "--- machine");
-            out.push_str(&String::from_utf8_lossy(&result.stdout));
-        }
         let _ = std::fs::write(session_dir.join("runtime-network-check.log"), out);
     });
 }

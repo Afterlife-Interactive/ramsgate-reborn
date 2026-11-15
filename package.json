@@ -3,7 +3,7 @@
   "description": "Ramsgate Reborn launcher: sign in, verify your install, and play Dauntless",
   "author": "Ramsgate Reborn",
   "private": true,
-  "version": "0.2.46",
+  "version": "0.2.47",
   "type": "module",
   "scripts": {
     "dev": "vite",

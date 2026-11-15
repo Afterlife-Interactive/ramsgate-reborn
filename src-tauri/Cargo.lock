@@ -2256,7 +2256,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "0.2.46"
+version = "0.2.47"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
