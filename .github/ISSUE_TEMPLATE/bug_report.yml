@@ -1,0 +1,35 @@
+name: Launcher bug report
+description: Something in the launcher is broken
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For account or game help use the [support site](https://support.afterlifeinteractive.com/). Never post passwords, tokens or login codes.
+  - type: input
+    id: launcher
+    attributes:
+      label: Launcher version
+      placeholder: "0.2.50"
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game version
+      placeholder: "1.12.0"
+    validations:
+      required: true
+  - type: input
+    id: region
+    attributes:
+      label: Region
+      placeholder: "London, New York, Canada, Singapore, Oceania"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you got.
+    validations:
+      required: true

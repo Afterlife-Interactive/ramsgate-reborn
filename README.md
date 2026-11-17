@@ -1,121 +1,92 @@
 <p align="center">
-  <img src=".github/assets/banner.webp" width="100%" alt="Ramsgate Reborn banner: a golden behemoth silhouette on a dark background, from the launcher's Ember theme.">
+  <img src=".github/assets/banner.webp" width="100%" alt="Dauntless Ramsgate Reborn">
+</p>
+
+<p align="center"><b>Dauntless 1.12, kept alive.</b></p>
+
+<p align="center">
+  <a href="https://play.afterlifeinteractive.com/launcher/v1/updates/windows/x86_64/download"><b>Download</b></a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://afterlifeinteractive.com/ramsgate-reborn">Website</a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://support.afterlifeinteractive.com/">Support</a>
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="License: AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-0D669C?style=flat-square&labelColor=031523"></a>
-  <a href="https://afterlifeinteractive.com/ramsgate-reborn"><img alt="Ramsgate Reborn website" src="https://img.shields.io/badge/website-afterlifeinteractive.com-0D669C?style=flat-square&labelColor=031523"></a>
-  <a href="https://support.afterlifeinteractive.com/"><img alt="Get help on the support site" src="https://img.shields.io/badge/support-support.afterlifeinteractive.com-0D669C?style=flat-square&labelColor=031523"></a>
-  <a href="https://discord.gg/dauntlessrevived"><img alt="Join the Discord for announcements and community" src="https://img.shields.io/badge/Discord-announcements%20%26%20community-5865F2?style=flat-square&logo=discord&logoColor=white"></a>
-  <a href="https://www.patreon.com/cw/RamsgateReborn"><img alt="Optional support on Patreon" src="https://img.shields.io/badge/Patreon-optional%20support-FF424D?style=flat-square&logo=patreon&logoColor=white"></a>
+  <a href="https://github.com/Afterlife-Interactive/ramsgate-reborn/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Afterlife-Interactive/ramsgate-reborn?style=flat-square&color=e8336d&labelColor=2a1030"></a>
+  <a href="LICENSE"><img alt="AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-f08a30?style=flat-square&labelColor=2a1030"></a>
 </p>
 
-<p align="center"><img src=".github/assets/logo.png" width="96" alt="Ramsgate Reborn dragon logo"></p>
+## What it is
 
-# Ramsgate Reborn Launcher
+Ramsgate Reborn is a community server for Dauntless 1.12.0, the free co-op monster hunting game whose
+official servers shut down on 30 May 2025. This is its launcher: you sign in with Discord, it checks your
+game install, keeps itself up to date and starts the game. The game server is run by us and is not in this
+repository, and no game files are either. We are an unofficial fan project and are not affiliated with
+Phoenix Labs, Epic Games or Forte Labs.
 
-**Ramsgate Reborn is a community server for Dauntless 1.12.0**, Phoenix Labs' free-to-play co-op
-monster-hunting game. The official servers shut down on 30 May 2025. This launcher is how you sign in,
-check your game install and play on Ramsgate Reborn. It is built and run by
-**Afterlife Interactive LLC**, the group behind Ramsgate Reborn and the Dauntless Revived community.
+<table>
+  <tr>
+    <td width="50%"><img src=".github/assets/screenshot-home.webp" alt="Launcher home screen"><br><sub>Play and server status</sub></td>
+    <td width="50%"><img src=".github/assets/screenshot-builds.webp" alt="Build planner"><br><sub>Build planner</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src=".github/assets/screenshot-hours.webp" alt="Hour badges"><br><sub>Hour badges</sub></td>
+    <td width="50%"><img src=".github/assets/screenshot-themes.webp" alt="Theme picker"><br><sub>14 behemoth themes</sub></td>
+  </tr>
+</table>
 
-The server side is built on the work of **Undaunted** by gwog (Gregory Morford) and contributors and
-**Mystic Paradox** by Pranav Karande, both AGPL-3.0, whose credits are in [NOTICE.md](NOTICE.md). No game
-files are in this repository.
+## Features
 
-> This repository is the launcher only. The game server is run by us and is not part of it.
+- Online and offline mode
+- Build planner
+- Hour badges
+- 14 behemoth themes
+- Game language setting
+- Save reset
 
-## Quick answers
+## Install
 
-### Can I play Ramsgate Reborn?
-Yes, with a Discord account. Install the launcher below and sign
-in. Opening news and the current state are on the [website](https://afterlifeinteractive.com/ramsgate-reborn)
-and in the [Discord](https://discord.gg/dauntlessrevived). Need help? Use the [support site](https://support.afterlifeinteractive.com/).
+You need Windows 10 or 11 (64-bit), Dauntless 1.12.0 and a Discord account. Download the installer from the
+[latest release](https://github.com/Afterlife-Interactive/ramsgate-reborn/releases/latest) or the
+[website](https://afterlifeinteractive.com/ramsgate-reborn), run it (no admin rights needed), sign in and
+follow the prompts for your game folder. The installer is not code-signed yet, so Windows SmartScreen may
+warn about it. Always start the game from the launcher.
 
-### Which version of the game does it work with?
-Only **1.12.0** (changelist 392819). The launcher checks your install before it lets you play.
+<details>
+<summary>Build it</summary>
 
-### Do I need an Epic Games account?
-No. You sign in with Discord.
+<br>
 
-### Is it official?
-No. It is an unofficial, non-commercial fan project and is not affiliated with Phoenix Labs, Epic Games
-or Forte Labs. Dauntless belongs to its owners.
-
-### Where do I get help?
-On the [support site](https://support.afterlifeinteractive.com/). The [Discord](https://discord.gg/dauntlessrevived)
-is for announcements and the community. For a launcher bug you can also open an issue here.
-
-## Download
-
-Get the installer from the [website](https://afterlifeinteractive.com/ramsgate-reborn). The launcher updates
-itself after that.
-
-The installer is not code-signed yet, so Windows SmartScreen may warn about it. Questions go to the
-[support site](https://support.afterlifeinteractive.com/).
-
-## Requirements
-
-- Windows 10 or 11, 64-bit
-- Dauntless 1.12.0: the launcher checks your game install before it lets you play
-- Microsoft Edge WebView2 Runtime (already on current Windows 10/11)
-- A Discord account
-
-## Install and play
-
-1. Download and run the installer. It installs for your user only and does not need admin rights.
-2. Open Ramsgate Reborn and choose Sign in with Discord.
-3. Follow the launcher's prompts for your game folder.
-4. If it reports missing or outdated files, press Repair. Then press Play.
-
-The launcher keeps itself up to date. Always start the game from the launcher, not from the game executable.
-
-## Launcher themes
-
-The launcher has four themes, shown here with the art it ships with.
-
-<p align="center">
-  <img src=".github/assets/theme-classic.webp" width="48%" alt="Classic theme art">
-  <img src=".github/assets/theme-dusk.webp" width="48%" alt="Dusk theme art">
-  <img src=".github/assets/theme-ember.webp" width="48%" alt="Ember theme art">
-  <img src=".github/assets/theme-jade.webp" width="48%" alt="Jade theme art">
-</p>
-
-## Quick links
-
-| Link | What you'll find |
-|---|---|
-| [Website](https://afterlifeinteractive.com/ramsgate-reborn) | Ramsgate Reborn news and status |
-| [Launcher download](https://afterlifeinteractive.com/ramsgate-reborn) | The installer |
-| [Support](https://support.afterlifeinteractive.com/) | Help with the launcher, your account or the game |
-| [Discord](https://discord.gg/dauntlessrevived) | Announcements, community, finding players |
-| [Our mission](https://afterlifeinteractive.com/mission.html) | Why we restore games, credits and how funding works |
-| [Scope and legal](docs/SCOPE_AND_LEGAL.md) | What is not included, responsible use, licence |
-| [Security](SECURITY.md) | How to report a problem privately |
-
-## Building from source
-
-The source here is the launcher only (Tauri 2, Rust, React). You need Node.js 20+, stable Rust with the MSVC
-target, Visual Studio C++ Build Tools and WebView2.
+The launcher is Tauri 2, Rust and React. You need Node.js 20+, stable Rust with the MSVC target, Visual
+Studio C++ Build Tools and WebView2.
 
 ```powershell
 .\build.ps1
 ```
 
-`build.ps1` sets the public play host and public verification key, then builds the NSIS installer. A build
-from source is not signed with our update key, so it will not match the released file byte for byte and will
-not take part in automatic updates.
+`build.ps1` sets the public play host and public verification key and builds the NSIS installer. A build
+from source is not signed with our update key, so it will not match the released file byte for byte and
+will not take part in automatic updates.
 
 | Folder | What it is |
 |---|---|
-| `src/` | The launcher interface (React, TypeScript) |
-| `src-tauri/` | The native side: sign-in, install check, signed updates, game launch (Rust) |
+| `src/` | Launcher interface (React, TypeScript) |
+| `src-tauri/` | Sign-in, install check, updates, game launch (Rust) |
 | `docs/` | Scope and legal notes |
 
-## Credits and licence
+</details>
 
-Ramsgate Reborn is a modified fork built on **Undaunted** (gwog / Gregory Morford and contributors) and
-**Mystic Paradox** (Pranav Karande). Licensed under the GNU Affero General Public License v3.0 only, see
-[LICENSE](LICENSE), [NOTICE.md](NOTICE.md) and [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md).
+## Contributing and support
 
-&copy; 2026 Afterlife Interactive LLC. Independent fan project. Not affiliated with Phoenix Labs or Forte Labs.
+Launcher bugs: [open an issue](https://github.com/Afterlife-Interactive/ramsgate-reborn/issues/new/choose).
+Account or game help goes to the [support site](https://support.afterlifeinteractive.com/). Security
+problems: see [SECURITY.md](SECURITY.md).
+
+## Licence
+
+AGPL-3.0-only, see [LICENSE](LICENSE), [NOTICE.md](NOTICE.md) and [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md).
+Built on Undaunted by gwog (Gregory Morford) and contributors and Mystic Paradox by Pranav Karande; credits
+are in the notice. Scope notes: [docs/SCOPE_AND_LEGAL.md](docs/SCOPE_AND_LEGAL.md).
+
+&copy; 2026 Afterlife Interactive LLC
