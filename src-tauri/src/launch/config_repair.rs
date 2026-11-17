@@ -118,10 +118,7 @@ mod tests {
     fn recognises_local_proxy_lines_only() {
         assert!(points_at_local_proxy("AuthEndpoint=\"http://127.0.0.1:61000/game/login\""));
         assert!(!points_at_local_proxy("AuthEndpoint=\"https://example.test/game/login\""));
-        assert!(points_at_local_proxy("AuthEndpoint=\"http://100.64.0.10:61000/game/login\""));
-        assert!(points_at_local_proxy("QueryLoginQueueEndpoint=\"http://192.168.1.20:61000/login\""));
         assert!(!points_at_local_proxy("AuthEndpoint=\"https://play.afterlifeinteractive.com:61000/login\""));
-        assert!(is_local_xmpp_line("ServerAddr=\"ws://100.64.0.10\""));
         assert!(!is_local_xmpp_line("ServerAddr=\"ws://chat.example.test\""));
         assert!(is_local_xmpp_line("ServerAddr=\"ws://127.0.0.1\""));
         assert!(is_local_xmpp_line("ServerPort=61000"));

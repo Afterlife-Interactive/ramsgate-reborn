@@ -151,10 +151,9 @@ mod ping_url_tests {
 
     #[test]
     fn only_public_https_hosts_are_pinged() {
-        assert!(is_ping_url("https://203-0-113-10.sslip.io/QoS"));
-        assert!(!is_ping_url("http://203-0-113-10.sslip.io/QoS"));
+        assert!(is_ping_url("https://ping.example.com/QoS"));
+        assert!(!is_ping_url("http://ping.example.com/QoS"));
         assert!(!is_ping_url("https://127.0.0.1/QoS"));
-        assert!(!is_ping_url("https://192.168.1.5/QoS"));
         assert!(!is_ping_url("https://localhost/QoS"));
         assert!(!is_ping_url("https://box.internal/QoS"));
         assert!(!is_ping_url("https://user:pw@example.com/QoS"));

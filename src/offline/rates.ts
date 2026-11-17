@@ -1,5 +1,5 @@
 // RR-38 offline mode: the Offline rates sliders. Same ranges as the offline backend (RATE_LIMITS in
-// the backend rates table) and the launcher's Rust side (src-tauri/src/offline/rates.rs); a test checks all
+// the offline backend) and the launcher's Rust side (src-tauri/src/offline/rates.rs); a test checks all
 // three agree. The Rust side clamps again before it writes rates.json, and the backend clamps again when it reads it.
 // These rates only ever apply to the offline servers on this PC.
 

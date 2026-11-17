@@ -1,12 +1,12 @@
 [package]
 name = "launcher"
 default-run = "launcher"
-version = "0.2.47"
+version = "0.2.50"
 description = "Ramsgate Reborn launcher — sign in, verify your install, and play Dauntless"
 authors = ["Ramsgate Reborn"]
 edition = "2021"
 license = "AGPL-3.0-only"
-repository = "https://github.com/Afterlife-Interactive/ramsgate-reborn-launcher"
+repository = "https://github.com/Afterlife-Interactive/ramsgate-reborn"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

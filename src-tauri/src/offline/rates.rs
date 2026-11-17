@@ -1,5 +1,5 @@
 // RR-38 offline mode: the player's rates.json. Same ranges as the offline backend's RATE_LIMITS
-// (the backend); a test below reads that file and fails if the two differ. The backend clamps
+// (the offline backend); a test below reads that file and fails if the two differ. The backend clamps
 // again on read, so this is the first of two checks, not the only one. Only the offline backend reads this file; the
 // live backend has no code that reads it.
 

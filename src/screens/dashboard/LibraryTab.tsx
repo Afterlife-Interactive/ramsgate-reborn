@@ -1,3 +1,4 @@
+import { DrReclaimButton } from "./DrReclaimButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePolicy } from "../../policy/PolicyContext";
 import { getInstallStatus, pickInstallPath, installRuntimeUpdate, type InstallStatus, type UninstallResult } from "../../api/tauri";
@@ -119,6 +120,12 @@ export function LibraryTab() {
                 </>
               )}
             </div>
+          </div>
+
+          <div>
+            <p className="text-[13px] font-medium text-text">Dauntless Revived transfer</p>
+            <p className="mt-1 text-[13px] text-text-muted">If your Dauntless Revived progress did not arrive, you can ask for it again. Close the game first.</p>
+            <DrReclaimButton />
           </div>
 
           <div className="flex items-center gap-3">

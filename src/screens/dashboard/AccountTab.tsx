@@ -2,6 +2,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { Button } from "../../components/Button";
 import { DISCORD_ONLY } from "../../lib/buildConfig";
 import { PlaytimeCard } from "./PlaytimeCard";
+import { ResetSaveCard } from "./ResetSaveCard";
 
 export function AccountTab() {
   const { account, logout } = useAuth();
@@ -38,6 +39,8 @@ export function AccountTab() {
       </div>
 
       <PlaytimeCard />
+
+      <ResetSaveCard />
 
       <Button variant="secondary" className="mt-6 w-full" onClick={() => void logout()}>
         Log out

@@ -7,7 +7,7 @@ const button = "rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-[1
 
 /**
  * The line for a Dauntless Revived copy that is not here yet. It sits on the home tab and does not block anything:
- * the player can use the launcher and play while waiting. The status call is also the heartbeat.
+ * the player can use the launcher while waiting (Play stays off until the transfer is ready). The status call is also the heartbeat.
  * Nothing is sent on its own except that status call. Joining, leaving and starting fresh each need a click
  * (starting fresh goes through the same two-step confirm and the same decision call as the choice screen).
  */

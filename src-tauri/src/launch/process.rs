@@ -235,7 +235,7 @@ pub struct LaunchIdentity {
 }
 
 /// Phase 2 (in-process redirect): the game is launched with NO proxy env vars. The injected
-/// DLL's FCurlHttpRequest::SetURL hook rewrites backend URLs straight to the configured backend,
+/// DLL's FCurlHttpRequest::SetURL hook rewrites backend URLs straight to paradox.mysticfox.dev,
 /// so the old WinDivert interceptor / HTTP_PROXY path is no longer used (matches
 /// start-client-direct.bat). epicapp/epicenv/epicsandboxid/epicdeploymentid stay fixed
 /// constants matching routes/eos.ts's EOS-compat values; the epic* identity args carry the
@@ -419,6 +419,9 @@ pub fn spawn_game(
             logs::copy_game_log_tail_best_effort(game_dir, session_dir, launch_started_at);
             logs::copy_crash_folders_best_effort(game_dir, session_dir, launch_started_at);
             logs::copy_game_config_best_effort(session_dir);
+            if !logs::runtime_log_written_since(game_dir, launch_started_at) {
+                logs::append_launcher_log(session_dir, &logs::runtime_not_started_note(game_dir));
+            }
             return Err(format!("Dauntless exited immediately (code: {code})."));
         }
 
@@ -432,6 +435,16 @@ pub fn spawn_game(
             "post-spawn crash check passed; monitoring in background",
         );
 
+        // While the game is still up (the stock dialog just sits there), note early that the runtime did not start.
+        {
+            let (watch_dir, watch_game_dir) = (session_dir.to_path_buf(), game_dir.to_path_buf());
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(40));
+                if !logs::runtime_log_written_since(&watch_game_dir, launch_started_at) {
+                    logs::append_launcher_log(&watch_dir, &logs::runtime_not_started_note(&watch_game_dir));
+                }
+            });
+        }
         let game_pid = pi.dwProcessId;
         mark_launched(&LAUNCHED_GAME, game_pid);
         let h_process = SendableHandle(pi.hProcess);
@@ -450,6 +463,9 @@ pub fn spawn_game(
             CloseHandle(h_process);
             mark_exited(&LAUNCHED_GAME, game_pid);
             logs::append_launcher_log(&session_dir_owned, &format!("exited (code {code})"));
+            if !logs::runtime_log_written_since(&game_dir_owned, launch_started_at) {
+                logs::append_launcher_log(&session_dir_owned, &logs::runtime_not_started_note(&game_dir_owned));
+            }
             metadata.exit_code = Some(code);
             metadata.exited_at = Some(logs::iso8601_now());
             logs::write_metadata(&session_dir_owned, &metadata);

@@ -46,7 +46,7 @@ export function AboutTab() {
         </div>
 
         <div className="mt-5 flex gap-4 border-t border-border pt-4 text-[13px]">
-          <a href="https://github.com/Afterlife-Interactive/ramsgate-reborn-launcher" target="_blank" rel="noopener noreferrer" className="text-accent-hover hover:underline">
+          <a href="https://github.com/Afterlife-Interactive/ramsgate-reborn" target="_blank" rel="noopener noreferrer" className="text-accent-hover hover:underline">
             Source code
           </a>
           <a href="https://support.afterlifeinteractive.com/" target="_blank" rel="noopener noreferrer" className="text-accent-hover hover:underline">

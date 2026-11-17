@@ -112,8 +112,8 @@ pub fn write_metadata(dir: &Path, metadata: &SessionMetadata) {
     }
 }
 
-/// Best-effort: copies any RamsgateRuntime DLL log (`ramsgatereborn_dll_port*.log`, written
-/// beside the game exe — see RamsgateRuntime/dllmain.cpp's MpLogDir()) modified since launch
+/// Best-effort: copies any runtime DLL log (`ramsgatereborn_dll_port*.log`, written
+/// beside the game exe — see the runtime) modified since launch
 /// into the session folder (last 1.8 MB of each). The DLL doesn't accept a log-path argument, so this is the
 /// non-invasive way to get its output into the per-session folder without changing the
 /// (signed, separately-published) runtime DLL itself.
@@ -140,6 +140,30 @@ pub fn copy_runtime_logs_best_effort(game_dir: &Path, session_dir: &Path, since:
             let _ = fs::write(session_dir.join(format!("runtime-{name_str}")), bytes);
         }
     }
+}
+
+/// True when the runtime DLL wrote (or touched) any `ramsgatereborn_dll_port*.log` beside the game exe since `since`.
+/// The DLL logs its version in the first second of every start, so no fresh log means the runtime never loaded and the
+/// stock game ran on its own (the "Failed to create IGameClient instance" dialog).
+pub fn runtime_log_written_since(game_dir: &Path, since: SystemTime) -> bool {
+    let Ok(entries) = fs::read_dir(game_dir) else { return false };
+    entries.flatten().any(|entry| {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        name.starts_with("ramsgatereborn_dll_port")
+            && name.ends_with(".log")
+            && entry.metadata().and_then(|m| m.modified()).map(|m| m >= since).unwrap_or(false)
+    })
+}
+
+/// One line for launcher.log describing a launch where the runtime did not start, with the file sizes (no paths).
+pub fn runtime_not_started_note(game_dir: &Path) -> String {
+    let size = |n: &str| fs::metadata(game_dir.join(n)).map(|m| m.len().to_string()).unwrap_or_else(|_| "missing".into());
+    format!(
+        "runtime did not start: no runtime log was written (winmm.dll {} bytes, RamsgateReborn.dll {} bytes); a security program may be blocking the game folder",
+        size("winmm.dll"),
+        size("RamsgateReborn.dll")
+    )
 }
 
 /// Newest session folders kept under Sessions/. Every Play attempt copies up to ~13 MB of log tails into its own
@@ -747,5 +771,25 @@ mod wer_tests {
         let _ = std::fs::create_dir_all(&dir);
         super::copy_wer_reports_best_effort(&dir);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod runtime_log_tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn a_fresh_runtime_log_counts_and_an_old_or_missing_one_does_not() {
+        let dir = std::env::temp_dir().join(format!("rr-rtlog-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let before = SystemTime::now() - Duration::from_secs(60);
+        assert!(!runtime_log_written_since(&dir, before));
+        fs::write(dir.join("ramsgatereborn_dll_port0.log"), b"x").unwrap();
+        assert!(runtime_log_written_since(&dir, before));
+        assert!(!runtime_log_written_since(&dir, SystemTime::now() + Duration::from_secs(60)));
+        assert!(runtime_not_started_note(&dir).contains("missing"));
+        let _ = fs::remove_dir_all(&dir);
     }
 }

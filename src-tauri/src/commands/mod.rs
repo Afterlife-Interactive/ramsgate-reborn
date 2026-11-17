@@ -13,6 +13,7 @@ pub mod online_save_download;
 pub mod playtime;
 pub mod queue;
 pub mod region;
+pub mod save_reset;
 pub mod retry;
 pub mod uninstall;
 pub mod updates;

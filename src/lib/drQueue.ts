@@ -31,7 +31,7 @@ export const QUEUE_TEXT = {
   left: "You left the line. You can join again later.",
   notFound: "We couldn't find a Dauntless Revived character to copy on this account, so there is nothing to move.",
   playLine:
-    "You can play while you wait. Moving your progress only works until you start playing for real: finishing a hunt, earning XP, levels or currency, or getting items.",
+    "Do not play until your transfer is done. Waiting is safe, playing first can cancel your transfer.",
   etaLead: "Estimated wait",
   etaNote: "This is a guess based on how fast copies are finishing, not a promise.",
   noUpdate: "We couldn't update your place just now. Your place is kept, and we'll try again shortly.",
@@ -136,14 +136,15 @@ export function queueViewFor(answer: DrQueueAnswer | null | undefined): DrQueueV
       }
       // The server's waiting text repeats the place, the wait and the play rule that the panel already shows as lines of their own
       // (and its wait wording can read "about about"). When it does, the plain body is shown instead.
-      const text = pulling ? own ?? QUEUE_TEXT.pulling : own !== null && !repeatsPlace(own) ? own : QUEUE_TEXT.waiting;
+      const own2 = own !== null && !/play(ing)? while|keep playing|can play/i.test(own) ? own : null;
+      const text = pulling ? own2 ?? QUEUE_TEXT.pulling : own2 !== null && !repeatsPlace(own2) ? own2 : QUEUE_TEXT.waiting;
       const longWait = !pulling && answer?.longWait === true;
       return {
         kind: pulling ? "pulling" : "waiting",
         positionLine: pulling ? null : positionLine,
         etaLine: range ? `${QUEUE_TEXT.etaLead}: ${range}. ${QUEUE_TEXT.etaNote}` : null,
         text,
-        playLine: /playing for real/i.test(text) ? null : QUEUE_TEXT.playLine,
+        playLine: QUEUE_TEXT.playLine,
         longWait,
         startFreshText: longWait ? clean(answer?.startFreshText) ?? QUEUE_TEXT.startFresh : null,
         retryAfterSeconds: whole(answer?.retryAfterSeconds),

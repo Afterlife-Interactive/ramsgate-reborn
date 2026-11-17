@@ -1,0 +1,17 @@
+{
+  "productName": "Ramsgate Reborn",
+  "identifier": "dev.ramsgatereborn.winetest",
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://play.afterlifeinteractive.com wss://play.afterlifeinteractive.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'"
+    }
+  },
+  "plugins": {
+    "deep-link": { "desktop": { "schemes": [ "zfxramsgatewine" ] } },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY0QTgxMTMyQ0M4NDg1NTMKUldSVGhZVE1NaEdvOVAveUtXUVNYSEVjZytIR0ovaVFqRk1FOUZRYkJHbGZ2T2QrcnZKN0M4THEK",
+      "endpoints": [ "https://play.afterlifeinteractive.com/launcher/v1/updates/windows/x86_64/{{current_version}}" ],
+      "windows": { "installMode": "quiet" }
+    }
+  }
+}

@@ -138,6 +138,19 @@ export async function drClaim(replace = false): Promise<DrClaimStatus> {
   return invoke<DrClaimStatus>("native_dr_claim", { replace });
 }
 
+export type DrReclaimOutcome =
+  | "started" | "reclaimed" | "will_apply" | "already_done" | "nothing" | "not_eligible" | "has_progress" | "in_game" | "wait"
+  | "fetching" | "not_ready" | "no_match" | "transfers_ended" | "declined" | "try_later" | "unavailable" | "no_key";
+
+/** "Start fresh": gives up the Dauntless Revived move. Rejects with a plain sentence when the server cannot do it. */
+export async function drSkip(): Promise<DrChoiceReply> {
+  return invoke<DrChoiceReply>("native_dr_skip");
+}
+
+export async function drReclaim(): Promise<DrReclaimOutcome> {
+  return invoke<DrReclaimOutcome>("native_dr_reclaim");
+}
+
 export async function getPolicy(channel?: "stable" | "beta"): Promise<LauncherPolicy> {
   return invoke<LauncherPolicy>("native_get_policy", { channel: channel ?? null });
 }
@@ -261,4 +274,13 @@ export async function getGameLanguage(): Promise<string> {
 
 export async function setGameLanguage(code: string): Promise<void> {
   return invoke<void>("native_set_game_language", { code });
+}
+
+export type ResetSaveOutcome =
+  | "reset" | "already_fresh" | "confirm_required" | "not_allowed" | "in_game" | "cooldown" | "error" | "wait" | "unavailable" | "unknown";
+export interface ResetSaveResult { outcome: ResetSaveOutcome; message?: string | null; retryAfterSeconds?: number | null }
+
+/** Player-started save data reset (POST /launcher/v1/account/reset-save). An empty word is the availability probe and changes nothing. */
+export async function resetSave(confirm: string): Promise<ResetSaveResult> {
+  return invoke<ResetSaveResult>("native_reset_save", { confirm });
 }

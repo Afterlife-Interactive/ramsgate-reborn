@@ -9,9 +9,7 @@ contributions only (see `ADDITIONAL_TERMS.md`).
 
 Mystic Paradox is a modified version of Undaunted (AGPLv3 §5).
 
-Development of the Mystic Paradox modifications began on 5 July 2026. This public
-repository is a sanitized and reorganized source release of work developed since
-5 July 2026.
+Development of the Mystic Paradox modifications began on 5 July 2026. This repository contains the launcher only.
 
 - Original project: Undaunted by gwog :3 / Gregory Morford (SyST3MDeV)
 - Modified work: Mystic Paradox by Pranav Karande
@@ -43,18 +41,7 @@ Pranav Karande includes, among other things:
 - Realtime XMPP presence/chat services.
 - Progression, inventory, store, matchmaking, party, and guild systems for 1.12.0.
 
-### Runtime loader
-
-`tools/RuntimeLoader` is derived from
-[coldloader-proxy](https://github.com/denuvosanctuary/coldloader-proxy) and is distributed under
-the Apache License 2.0. Its license is retained at `tools/RuntimeLoader/LICENSE`.
-
 ## Notes
 
-- This repository does not distribute the game client, packaged game assets, generated SDK
-  headers, or bulk extracted game-data tables. It does contain interoperability information
-  (protocol/endpoint names, catalog identifiers, class names, engine hook offsets) as any
-  compatibility layer must. See `README.md` and `docs/` for generating the SDK and game data
-  from your own installation.
-- Credentials, certificates, and private keys have been removed. Configuration is
-  provided as `.env.example` templates only.
+- This repository does not distribute the game client, packaged game assets or game data.
+- No credentials, certificates or private keys are included.

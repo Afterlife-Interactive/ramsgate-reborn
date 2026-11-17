@@ -92,16 +92,20 @@ export const DR_TEXT = {
   sendAgainButton: "Try again",
 
   notCopiedYet:
-    "Your Dauntless Revived account has not been copied over yet. You can wait and check back, or skip the move for good. You can look around in the meantime, but once you start playing for real (finishing a hunt, earning XP, levels or currency, or getting items) you lose the chance to move it.",
+    "Your Dauntless Revived account has not been copied over yet. Do not play until your transfer is done: waiting is safe, and playing first can cancel your transfer. Once you start playing for real (finishing a hunt, earning XP, levels or currency, or getting items) you lose the chance to move it. You can also skip the move for good.",
   notCopiedYetKeepPlaying:
-    "Your Dauntless Revived account has not been copied over yet. You can check back later, or skip the move for good. You can keep playing while you wait, but if you have earned progress here by the time your copy is ready, it can't be moved. Moving is only possible until you start playing for real: finishing a hunt, earning XP, levels or currency, or getting items ends it.",
+    "Your Dauntless Revived account has not been copied over yet. Do not play until your transfer is done: waiting is safe, and playing first can cancel your transfer. Moving is only possible until you start playing for real: finishing a hunt, earning XP, levels or currency, or getting items ends it.",
   transfersEnded: "Moving Dauntless Revived accounts has ended, and a copy of your account was not made in time, so it can't be moved.",
   alreadyDeclined: "You chose not to move your Dauntless Revived account. That can't be changed.",
   alreadyTransferred: "Your Dauntless Revived account has already been moved.",
   hasProgress:
     "You have already started playing for real on this account (finished a hunt, or earned XP, levels, currency or items), so your Dauntless Revived progress can no longer be moved. It only works until you start playing for real.",
   tryAgainLater: "We couldn't check your Dauntless Revived account just now. Nothing was changed. Try again in a little while.",
-  tryAgainButton: "Check again",
+  tryAgainButton: "Retry",
+  tryAgainExhausted:
+    "Could not check your Dauntless Revived account. If you have a Dauntless Revived account, wait and press Retry before you play: entering the game early can lock out your transfer. If you do not want to move it, press Start fresh.",
+  startFreshButton: "Start fresh",
+  startFreshFailed: "We could not do that just now. Nothing was changed. Try again in a little while.",
 } as const;
 
 export type DrChoiceView =
@@ -109,7 +113,12 @@ export type DrChoiceView =
   /** The full screen. Play stays off until the player has chosen and confirmed. */
   | { kind: "screen"; state: "dr_choice_open"; blocksPlay: true }
   /** A plain notice. Play is allowed. `retry` shows a manual "Check again" button. */
-  | { kind: "notice"; state: DrChoiceState; text: string; blocksPlay: false; retry: boolean };
+  | { kind: "notice"; state: DrChoiceState; text: string; blocksPlay: false; retry: boolean; exhausted?: boolean };
+
+/** The check kept failing after the automatic retries: Play is released and the player can Retry or Start fresh. */
+export function exhaustedView(): DrChoiceView {
+  return { kind: "notice", state: "dr_try_again_later", text: DR_TEXT.tryAgainExhausted, blocksPlay: false, retry: true, exhausted: true };
+}
 
 function isKnown(state: string): state is DrChoiceState {
   return (DR_CHOICE_STATES as readonly string[]).includes(state);
@@ -132,7 +141,7 @@ export function viewFor(answer: DrChoiceAnswer | null | undefined): DrChoiceView
       return { kind: "none", state };
     case "dr_not_copied_yet": {
       // The server's own text already says what applies (it differs when playing does not end the option), so it is shown as sent.
-      const text = own ?? (DR_PLAY_ENDS_OPTION ? DR_TEXT.notCopiedYet : DR_TEXT.notCopiedYetKeepPlaying);
+      const text = own !== null && !/play(ing)? while|keep playing|can play/i.test(own) ? own : (DR_PLAY_ENDS_OPTION ? DR_TEXT.notCopiedYet : DR_TEXT.notCopiedYetKeepPlaying);
       return { kind: "notice", state, text, blocksPlay: false, retry: true };
     }
     case "dr_transfers_ended":

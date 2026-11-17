@@ -257,6 +257,81 @@ pub async fn native_dr_claim(app: AppHandle, replace: Option<bool>) -> Result<St
     .map_err(|_| "The account check stopped unexpectedly.".to_string())?
 }
 
+/// What the launcher shows for the player-initiated re-pull (POST /launcher/v1/dr-reclaim). The route is idempotent and
+/// allowed once per account per hour; it refuses while the game is connected and when real progress already exists.
+/// Returns one of: started, has_progress, in_game, wait, not_ready, no_key. Anything unreadable is an error the screen
+/// turns into a plain "try again" line, so a network problem never blocks Play or changes anything.
+pub(crate) fn reclaim_outcome(http_status: u16, word: &str) -> Option<&'static str> {
+    if http_status == 429 {
+        return Some("wait");
+    }
+    // The route is not on this server (yet): "not available", never "could not reach the server".
+    if http_status == 404 {
+        return Some("unavailable");
+    }
+    match word {
+        // The real route (always HTTP 200 with { status, code, message }).
+        "reclaimed" => Some("reclaimed"),
+        "will_apply_on_start" => Some("will_apply"),
+        "already_done" => Some("already_done"),
+        "nothing_to_move" => Some("nothing"),
+        "not_eligible" => Some("not_eligible"),
+        "in_game" => Some("in_game"),
+        "rate_limited" => Some("wait"),
+        "fetching" => Some("fetching"),
+        "not_ready" | "not_copied_yet" => Some("not_ready"),
+        "no_match" => Some("no_match"),
+        "transfers_ended" => Some("transfers_ended"),
+        "declined" => Some("declined"),
+        "try_later" => Some("try_later"),
+        // Older guessed words, still accepted.
+        "ok" | "started" | "queued" | "ported" | "already_pulled" => Some("started"),
+        "has_progress" | "already" | "progress_exists" => Some("has_progress"),
+        "game_connected" | "client_connected" => Some("in_game"),
+        "wait" | "too_soon" => Some("wait"),
+        _ => None,
+    }
+}
+
+#[derive(Deserialize, Default)]
+struct ReclaimReply {
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    code: Option<String>,
+    #[serde(default)]
+    state: Option<String>,
+}
+
+#[tauri::command]
+pub async fn native_dr_reclaim(app: AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let keys = find_candidates(&app);
+        if keys.is_empty() {
+            return Ok("no_key".to_string());
+        }
+        let session = refresh_native_session(&app)?;
+        let response = http_client()?
+            .post(format!("{}/launcher/v1/dr-reclaim", api_base_url()))
+            .bearer_auth(&session.access_token)
+            .json(&serde_json::json!({ "keys": keys }))
+            .send()
+            .map_err(|_| "Couldn't reach the Ramsgate Reborn server right now.".to_string())?;
+        let http_status = response.status().as_u16();
+        if http_status == 429 {
+            return Ok("wait".to_string());
+        }
+        let reply: ReclaimReply = response.json().unwrap_or_default();
+        let word = reply.status.or(reply.code).or(reply.state).unwrap_or_default();
+        match reclaim_outcome(http_status, &word) {
+            Some(outcome) => Ok(outcome.to_string()),
+            None => Err("The server couldn't start the transfer right now.".to_string()),
+        }
+    })
+    .await
+    .map_err(|_| "The transfer check stopped unexpectedly.".to_string())?
+}
+
 const CHOICE_STATES: [&str; 8] = [
     "dr_choice_open",
     "dr_not_copied_yet",
@@ -287,9 +362,19 @@ fn decision_body(keys: &[String], choice: &str) -> serde_json::Value {
     serde_json::json!({ "keys": keys, "choice": choice, "confirmed": true })
 }
 
+/// 404 and 401 on the check mean there is no Dauntless Revived account to ask about (or no usable session for it): Play stays on.
+/// Everything else that is not a 2xx (5xx, 429, ...) is "try again later", which the launcher re-checks before it asks the player.
+pub(crate) fn choice_state_for_http(http_status: u16) -> Option<&'static str> {
+    match http_status {
+        200..=299 => None,
+        401 | 404 => Some("dr_no_dr_account"),
+        _ => Some("dr_try_again_later"),
+    }
+}
+
 fn read_choice_reply(response: reqwest::blocking::Response) -> Result<ChoiceReply, String> {
-    if !response.status().is_success() {
-        return Ok(ChoiceReply { state: "dr_try_again_later".to_string(), text: None });
+    if let Some(state) = choice_state_for_http(response.status().as_u16()) {
+        return Ok(ChoiceReply { state: state.to_string(), text: None });
     }
     let mut reply: ChoiceReply = response
         .json()
@@ -323,6 +408,36 @@ pub async fn native_dr_choice_status(app: AppHandle) -> Result<ChoiceReply, Stri
     })
     .await
     .map_err(|_| "The check stopped unexpectedly.".to_string())?
+}
+
+/// "Start fresh": gives up the Dauntless Revived move (POST /launcher/v1/dr-claim/skip, no keys, idempotent). A server that does
+/// not have the route (404) or any failure is a plain sentence and changes nothing.
+#[tauri::command]
+pub async fn native_dr_skip(app: AppHandle) -> Result<ChoiceReply, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let session = refresh_native_session(&app)?;
+        let response = http_client()?
+            .post(format!("{}/launcher/v1/dr-claim/skip", api_base_url()))
+            .bearer_auth(&session.access_token)
+            .json(&serde_json::json!({}))
+            .send()
+            .map_err(|_| "Couldn't reach the Ramsgate Reborn server right now.".to_string())?;
+        if !response.status().is_success() {
+            return Err("We could not do that just now. Nothing was changed. Try again in a little while.".to_string());
+        }
+        let mut reply: ChoiceReply = response
+            .json()
+            .map_err(|_| "The server sent an answer the launcher couldn't read.".to_string())?;
+        if reply.state != "dr_already_declined" && reply.state != "dr_already_transferred" {
+            reply.state = "dr_already_declined".to_string();
+        }
+        if reply.text.as_ref().map(|t| t.len() > 600).unwrap_or(false) {
+            reply.text = None;
+        }
+        Ok(reply)
+    })
+    .await
+    .map_err(|_| "The choice stopped unexpectedly.".to_string())?
 }
 
 /// Sends the player's decision. The page only calls this after the second confirm, and the request always says `confirmed: true`.
@@ -483,6 +598,45 @@ mod tests {
         assert_eq!(body["choice"], "decline");
         assert_eq!(body["keys"][0], "abcDEF12_-xyz");
         assert_eq!(body.as_object().map(|o| o.len()), Some(3));
+    }
+
+    #[test]
+    fn reclaim_answers_map_to_plain_outcomes() {
+        assert_eq!(reclaim_outcome(200, "reclaimed"), Some("reclaimed"));
+        assert_eq!(reclaim_outcome(200, "will_apply_on_start"), Some("will_apply"));
+        assert_eq!(reclaim_outcome(200, "already_done"), Some("already_done"));
+        assert_eq!(reclaim_outcome(200, "nothing_to_move"), Some("nothing"));
+        assert_eq!(reclaim_outcome(200, "not_eligible"), Some("not_eligible"));
+        assert_eq!(reclaim_outcome(200, "in_game"), Some("in_game"));
+        assert_eq!(reclaim_outcome(200, "rate_limited"), Some("wait"));
+        assert_eq!(reclaim_outcome(200, "fetching"), Some("fetching"));
+        assert_eq!(reclaim_outcome(200, "not_ready"), Some("not_ready"));
+        assert_eq!(reclaim_outcome(200, "no_match"), Some("no_match"));
+        assert_eq!(reclaim_outcome(200, "try_later"), Some("try_later"));
+        assert_eq!(reclaim_outcome(500, "try_later"), Some("try_later"));
+        assert_eq!(reclaim_outcome(429, ""), Some("wait"));
+        assert_eq!(reclaim_outcome(404, ""), Some("unavailable"));
+        assert_eq!(reclaim_outcome(200, "started"), Some("started"));
+        assert_eq!(reclaim_outcome(200, "something_new"), None);
+    }
+
+    #[test]
+    fn reclaim_reply_reads_the_real_payloads() {
+        let r: ReclaimReply = serde_json::from_str(r#"{"status":"reclaimed","code":"reclaimed","message":"Your Dauntless Revived progress has been moved into your account again. You can start the game now."}"#).unwrap();
+        assert_eq!(r.status.as_deref(), Some("reclaimed"));
+        let r: ReclaimReply = serde_json::from_str(r#"{"status":"rate_limited","code":"rate_limited","message":"x","retryAfterSeconds":2750}"#).unwrap();
+        assert_eq!(reclaim_outcome(200, &r.status.unwrap()), Some("wait"));
+        let r: ReclaimReply = serde_json::from_str(r#"{"status":"not_eligible","code":"not_eligible","message":"x","caseOpened":true}"#).unwrap();
+        assert_eq!(reclaim_outcome(200, &r.status.unwrap()), Some("not_eligible"));
+    }
+
+    #[test]
+    fn choice_check_http_codes_never_trap_play() {
+        assert_eq!(choice_state_for_http(200), None);
+        assert_eq!(choice_state_for_http(404), Some("dr_no_dr_account"));
+        assert_eq!(choice_state_for_http(401), Some("dr_no_dr_account"));
+        assert_eq!(choice_state_for_http(500), Some("dr_try_again_later"));
+        assert_eq!(choice_state_for_http(429), Some("dr_try_again_later"));
     }
 
     #[test]

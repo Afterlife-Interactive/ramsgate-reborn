@@ -90,10 +90,10 @@ test("the play-while-waiting line is on screen unless the server text already sa
   assert.ok(v.kind === "waiting" && v.playLine === QUEUE_TEXT.playLine);
   assert.equal(
     QUEUE_TEXT.playLine,
-    "You can play while you wait. Moving your progress only works until you start playing for real: finishing a hunt, earning XP, levels or currency, or getting items.",
+    "Do not play until your transfer is done. Waiting is safe, playing first can cancel your transfer.",
   );
   const withRule = queueViewFor({ ...waiting, text: "... once you start playing for real (finishing a hunt) you lose the chance." });
-  assert.ok(withRule.kind === "waiting" && withRule.playLine === null);
+  assert.ok(withRule.kind === "waiting" && withRule.playLine === QUEUE_TEXT.playLine);
 });
 
 test("the server's long waiting text that repeats the place is not shown on top of the place, wait and play lines", () => {
@@ -178,7 +178,7 @@ test("expired offers Join again, a left or empty line offers Join, full offers a
   assert.equal(buttonsFor(queueViewFor({ state: "queue_expired" })).join, "Join again");
   assert.equal(buttonsFor(queueViewFor({ state: "queue_left" })).join, "Join the line");
   assert.equal(buttonsFor(queueViewFor({ state: "dr_not_copied_yet" })).join, "Join the line");
-  assert.equal(buttonsFor(queueViewFor({ state: "queue_full" })).join, "Check again");
+  assert.equal(buttonsFor(queueViewFor({ state: "queue_full" })).join, DR_TEXT.tryAgainButton);
   assert.equal(buttonsFor(queueViewFor({ state: "dr_try_again_later" })).retry, true);
   for (const state of ["queue_not_found", "dr_transfers_ended", "dr_already_declined", "dr_has_progress", "dr_choice_open"]) {
     const b = buttonsFor(queueViewFor({ state }));
@@ -232,7 +232,7 @@ test("heartbeat stops when left, not in line, or hidden for long, and runs while
 test("the home tab shows the panel only for the not-copied-yet state", () => {
   const home = read("../screens/dashboard/HomeTab.tsx");
   assert.match(home, /<DrQueuePanel/);
-  assert.match(home, /drChoice\.state === "dr_not_copied_yet"/);
+  assert.match(home, /primary === "dr_queue"/);
 });
 
 test("queue texts keep to plain words", () => {

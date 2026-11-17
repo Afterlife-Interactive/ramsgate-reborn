@@ -7,7 +7,7 @@ export const ONE_WAY_NOTICE_TITLE = "Offline play stays on this PC";
 export const ONE_WAY_NOTICE: readonly string[] = [
   "Offline mode has its own separate save on this PC. It never connects to the online servers. The only thing that can come from your online account is a read-only copy of your save, which you load yourself from this panel; it only ever goes down, never back up.",
   "Everything you do offline (levels, items, Rams, coins) stays on this PC and can never be moved to your online account.",
-  "Offline mode makes its own copy of the Ramsgate Reborn game you already installed. It does not include any Phoenix Labs game files or data, and it never changes your online game folder.",
+  "Offline mode uses a separate copy of the Ramsgate Reborn game you already installed. It does not include any Phoenix Labs game files or data, and it never changes your online game folder.",
 ];
 
 export const OFFLINE_COMMANDS = [

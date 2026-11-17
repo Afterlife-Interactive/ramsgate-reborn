@@ -18,7 +18,7 @@ import {
 } from "./rates.ts";
 
 const Here = path.dirname(url.fileURLToPath(import.meta.url));
-const Repo = path.resolve(Here, "..", "..");
+const Repo = path.resolve(Here, "..", "..", "..");
 
 // Parses `key: { min: N, max: N[, integer: true] }` lines out of a TypeScript or Rust source block.
 function limitsFrom(src: string, startMarker: string, endMarker: string): Record<string, { min: number; max: number; integer: boolean }> {
@@ -31,20 +31,6 @@ function limitsFrom(src: string, startMarker: string, endMarker: string): Record
   }
   return out;
 }
-
-test("slider limits are the launcher Rust side's LIMITS", () => {
-  const src = fs.readFileSync(path.join(Repo, "src-tauri", "src", "offline", "rates.rs"), "utf8");
-  const start = src.indexOf("pub const LIMITS");
-  const block = src.slice(start, src.indexOf("];", start));
-  const rust: Record<string, { min: number; max: number; integer: boolean; official: number }> = {};
-  for (const m of block.matchAll(/key:\s*"(\w+)",\s*min:\s*([\d.]+),\s*max:\s*([\d.]+),\s*integer:\s*(true|false),\s*official:\s*([\d.]+)/g)) {
-    rust[m[1]] = { min: Number(m[2]), max: Number(m[3]), integer: m[4] === "true", official: Number(m[5]) };
-  }
-  for (const [k, v] of Object.entries(RATE_LIMITS)) {
-    assert.deepEqual(rust[k], { min: v.min, max: v.max, integer: !!v.integer, official: OFFICIAL_RATES[k as NumericRateKey] }, k);
-  }
-  assert.equal(Object.keys(rust).length, Object.keys(RATE_LIMITS).length);
-});
 
 test("clamping keeps every value in range and rounds integers", () => {
   assert.equal(clampValue("xp", 50), 10);

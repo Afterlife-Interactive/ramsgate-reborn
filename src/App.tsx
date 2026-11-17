@@ -9,6 +9,7 @@ import { Button } from "./components/Button";
 import { AuthShell } from "./components/AuthShell";
 import { checkLauncherUpdate, installLauncherUpdate, releaseLauncherUpdate, type LauncherUpdate } from "./api/updates";
 import { isGameRunning } from "./api/tauri";
+import { isLauncherOutdatedMessage, LAUNCHER_OUTDATED_EVENT } from "./lib/launcherOutdated";
 import { isLaunching } from "./lib/launchState";
 import { sanitizeError } from "./lib/sanitize";
 import { DISCORD_ONLY } from "./lib/buildConfig";
@@ -108,6 +109,39 @@ function AppShell() {
       window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", onVisible);
     };
+  }, []);
+
+  // A launcher below the server's minimum is refused with a "please update the launcher" text. Fetch the update and
+  // install it straight away (once per run; a failed install shows its error in the update dialog).
+  const autoUpdateStartedRef = useRef(false);
+  const autoUpdate = () => {
+    if (autoUpdateStartedRef.current || gameBusy) return;
+    autoUpdateStartedRef.current = true;
+    void (async () => {
+      const update = knownUpdateRef.current ?? (await checkLauncherUpdate());
+      if (!update) { autoUpdateStartedRef.current = false; return; }
+      if (!knownUpdateRef.current) keepUpdate(update);
+      setPostponedVersion(null);
+      setInstallingUpdate(true);
+      setUpdateError(null);
+      try {
+        await installLauncherUpdate(update);
+      } catch (err) {
+        setInstallingUpdate(false);
+        setUpdateError(sanitizeError(err instanceof Error ? err.message : String(err)) || "The update could not be installed. Try again.");
+        autoUpdateStartedRef.current = false;
+      }
+    })();
+  };
+  const autoUpdateRef = useRef(autoUpdate);
+  autoUpdateRef.current = autoUpdate;
+  useEffect(() => {
+    if (isLauncherOutdatedMessage(authError)) autoUpdateRef.current();
+  }, [authError]);
+  useEffect(() => {
+    const onOutdated = () => autoUpdateRef.current();
+    window.addEventListener(LAUNCHER_OUTDATED_EVENT, onOutdated);
+    return () => window.removeEventListener(LAUNCHER_OUTDATED_EVENT, onOutdated);
   }, []);
 
   // The Discord sign-in link expires after 5 minutes; don't leave the screen waiting past that.

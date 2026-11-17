@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-// Mirrors the backend tester feature list (TESTER_MANAGED_FEATURES) by hand —
+// Mirrors the backend tester feature list by hand —
 // keep the two in sync. This is the only place the launcher maps a server-sent logical
 // feature id to an exe-relative .flag filename; the server never sends a filename or path
 // directly (see that file's header comment: local .flag files are not a security control,

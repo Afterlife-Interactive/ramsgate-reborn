@@ -97,10 +97,18 @@ struct ErrorBody {
 /// wrong-folder text starts with WRONG_FOLDER_TEXT_START, which the screen looks for to offer the download button.
 pub(crate) const WRONG_FOLDER_TEXT_START: &str = "This game folder is not the Ramsgate Reborn game";
 
+/// The "launcher too old" text starts with this; the screen then installs the update on its own.
+pub(crate) const LAUNCHER_OUTDATED_TEXT_START: &str = "Please update the launcher";
+
+/// The server refused Play (HTTP 409 DR_TRANSFER_IN_PROGRESS) because the Dauntless Revived transfer is still being prepared.
+/// The screen looks for this start to show the one transfer message with "Start fresh" instead of a red error.
+pub(crate) const DR_GATE_TEXT_START: &str = "Your Dauntless Revived transfer is still being prepared";
+pub(crate) const DR_GATE_TEXT: &str = "Your Dauntless Revived transfer is still being prepared. Please wait until the launcher says it is ready; playing now can cancel it.";
+
 pub(crate) fn game_build_unsupported_text(server_message: Option<&str>) -> String {
     let m = server_message.unwrap_or("").to_ascii_lowercase();
     if m.contains("launcher is out of date") {
-        "Please update the launcher. This version is too old to start the game. Get the newest one from the Ramsgate Reborn website.".to_string()
+        format!("{LAUNCHER_OUTDATED_TEXT_START}. This version is too old to start the game. The launcher is updating itself now; if it does not, get the newest one from the Ramsgate Reborn website.")
     } else if m.contains("installation isn't recognized") || m.contains("build isn't supported") {
         format!("{WRONG_FOLDER_TEXT_START} (it looks like an old Dauntless or Dauntless Revived copy). Your account is fine.")
     } else {
@@ -134,6 +142,7 @@ pub(crate) fn safe_api_error(response: reqwest::blocking::Response, fallback: &s
             "Choose your launcher username before playing.".to_string()
         }
         Some("GAME_BUILD_UNSUPPORTED") => game_build_unsupported_text(server_message.as_deref()),
+        Some("DR_TRANSFER_IN_PROGRESS") => DR_GATE_TEXT.to_string(),
         _ => format!("{fallback} (server status {})", status.as_u16()),
     }
 }

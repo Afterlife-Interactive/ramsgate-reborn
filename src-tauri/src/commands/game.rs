@@ -35,7 +35,7 @@ pub struct GameManifest {
     pub signature: Option<String>,
 }
 
-/// The exact bytes the game manifest signature covers.
+/// The exact bytes the game manifest signature covers (see RamsgateLauncher/scripts/sign-game-manifest.mjs).
 pub(crate) fn game_manifest_message(m: &GameManifest) -> String {
     format!("ramsgate-game-archive-v1\n{}\n{}\n{}\n{}\n{}", m.version, m.file_name, m.size, m.sha256.to_ascii_lowercase(), m.format)
 }

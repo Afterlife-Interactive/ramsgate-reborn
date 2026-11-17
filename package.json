@@ -1,9 +1,9 @@
 {
   "name": "ramsgate-reborn-launcher",
-  "description": "Ramsgate Reborn launcher: sign in, verify your install, and play Dauntless",
+  "description": "Ramsgate Reborn launcher — sign in, verify your install, and play Dauntless",
   "author": "Ramsgate Reborn",
   "private": true,
-  "version": "0.2.47",
+  "version": "0.2.50",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -37,8 +37,9 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Afterlife-Interactive/ramsgate-reborn-launcher.git"
+    "url": "https://github.com/Afterlife-Interactive/ramsgate-reborn.git",
+    "directory": "RamsgateLauncher"
   },
-  "bugs": "https://github.com/Afterlife-Interactive/ramsgate-reborn-launcher/issues",
-  "homepage": "https://github.com/Afterlife-Interactive/ramsgate-reborn-launcher"
+  "bugs": "https://github.com/Afterlife-Interactive/ramsgate-reborn/issues",
+  "homepage": "https://github.com/Afterlife-Interactive/ramsgate-reborn"
 }

@@ -226,7 +226,7 @@ fn pin_args(pin: &str) -> Result<Vec<String>, String> {
     Ok(args)
 }
 
-/// The whole install in one go: copy the player's own installed game into the separate offline folder, make the local
+/// The whole install in one go: copy the installed game into the separate offline folder, make the local
 /// save, start the offline servers. Runs in the background; the UI polls offline_install_state. It never touches the
 /// online game folder and never contacts anything.
 fn run_install(app: &AppHandle) -> Result<(), (u8, String)> {
@@ -235,7 +235,7 @@ fn run_install(app: &AppHandle) -> Result<(), (u8, String)> {
     let component = find_component(app, &root).ok_or((1, "The offline files are not part of this launcher build yet.".to_string()))?;
     let game_exe = crate::install::paths::load_saved_exe_path(app)
         .filter(|p| p.is_file())
-        .ok_or((1, "Install the game first (Play tab): offline mode makes its own copy of your installed game.".to_string()))?;
+        .ok_or((1, "Install the game first (Play tab): offline mode uses a separate copy of your installed game.".to_string()))?;
     if paths::is_within(&game_exe, &root) {
         return Err((1, "The online game can't be inside the offline folder.".to_string()));
     }

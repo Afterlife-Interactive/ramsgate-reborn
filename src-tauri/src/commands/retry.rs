@@ -40,11 +40,26 @@ pub(crate) enum Failure {
     TimedOut,
     OtherSendError,
     Status(u16),
+    /// 429 with a Retry-After the server gave in seconds. The server refused before doing anything, so even a write
+    /// may be repeated, after the pause it asked for.
+    RateLimited(Duration),
+}
+
+/// Longest pause taken from a Retry-After header; a bigger ask ends the retrying (the caller sees the 429).
+const MAX_RETRY_AFTER: Duration = Duration::from_secs(30);
+
+/// Reads a Retry-After value given in whole seconds. A date, a negative or empty value, or one past the longest
+/// pause we are willing to wait gives None, and the 429 is returned to the caller as before.
+pub(crate) fn parse_retry_after(value: Option<&str>) -> Option<Duration> {
+    let secs: u64 = value?.trim().parse().ok()?;
+    let wait = Duration::from_secs(secs.max(1));
+    if wait > MAX_RETRY_AFTER { None } else { Some(wait) }
 }
 
 pub(crate) fn is_retryable(kind: Kind, failure: Failure) -> bool {
     match (kind, failure) {
         (_, Failure::CouldNotConnect) => true,
+        (_, Failure::RateLimited(_)) => true,
         (Kind::Read, Failure::TimedOut) => true,
         (Kind::Read, Failure::Status(502 | 503 | 504)) => true,
         _ => false,
@@ -79,7 +94,10 @@ fn run<T>(
             Ok(value) => return value,
             Err(failed) => failed,
         };
-        let delay = backoff_delay(retry);
+        let delay = match failure {
+            Failure::RateLimited(wait) => wait,
+            _ => backoff_delay(retry),
+        };
         if !is_retryable(kind, failure) || elapsed() + delay > budget {
             return value;
         }
@@ -139,6 +157,12 @@ pub(crate) fn send(kind: Kind, build: impl Fn() -> RequestBuilder) -> Result<Res
         || match build().send() {
             Ok(response) => {
                 let code = response.status().as_u16();
+                if code == 429 {
+                    let header = response.headers().get(reqwest::header::RETRY_AFTER).and_then(|v| v.to_str().ok());
+                    if let Some(wait) = parse_retry_after(header) {
+                        return Err((Failure::RateLimited(wait), Ok(response)));
+                    }
+                }
                 if is_retryable(kind, Failure::Status(code)) {
                     Err((Failure::Status(code), Ok(response)))
                 } else {
@@ -171,6 +195,53 @@ mod tests {
         assert!(!is_retryable(Kind::Write, Failure::OtherSendError));
         assert!(!is_retryable(Kind::Write, Failure::Status(503)));
         assert!(!is_retryable(Kind::Write, Failure::Status(500)));
+    }
+
+    #[test]
+    fn retry_after_is_read_in_seconds_and_capped() {
+        assert_eq!(parse_retry_after(Some("5")), Some(Duration::from_secs(5)));
+        assert_eq!(parse_retry_after(Some(" 12 ")), Some(Duration::from_secs(12)));
+        assert_eq!(parse_retry_after(Some("0")), Some(Duration::from_secs(1)));
+        assert_eq!(parse_retry_after(Some("30")), Some(Duration::from_secs(30)));
+        assert_eq!(parse_retry_after(Some("31")), None);
+        assert_eq!(parse_retry_after(Some("Wed, 21 Oct 2026 07:28:00 GMT")), None);
+        assert_eq!(parse_retry_after(Some("-3")), None);
+        assert_eq!(parse_retry_after(Some("")), None);
+        assert_eq!(parse_retry_after(None), None);
+    }
+
+    #[test]
+    fn a_429_with_retry_after_is_retried_for_reads_and_writes() {
+        for kind in [Kind::Read, Kind::Write] {
+            assert!(is_retryable(kind, Failure::RateLimited(Duration::from_secs(3))));
+            assert!(!is_retryable(kind, Failure::Status(429)), "a 429 without a usable Retry-After is returned as before");
+        }
+    }
+
+    #[test]
+    fn the_pause_is_the_one_the_server_asked_for() {
+        let slept = RefCell::new(Vec::new());
+        let n = Cell::new(0);
+        run(
+            Kind::Write,
+            RETRY_BUDGET,
+            || slept.borrow().iter().sum(),
+            |d| slept.borrow_mut().push(d),
+            || {},
+            || {
+                n.set(n.get() + 1);
+                if n.get() < 3 { Err((Failure::RateLimited(Duration::from_secs(7)), ())) } else { Ok(()) }
+            },
+        );
+        let secs: Vec<u64> = slept.borrow().iter().map(|d| d.as_secs()).collect();
+        assert_eq!(secs, vec![7, 7]);
+    }
+
+    #[test]
+    fn rate_limit_waits_stay_inside_the_budget() {
+        let (out, _, now, _) = simulate(Kind::Write, Failure::RateLimited(Duration::from_secs(30)), u32::MAX, Duration::ZERO);
+        assert_eq!(out, "failed");
+        assert!(now <= RETRY_BUDGET, "ended at {now:?}");
     }
 
     #[test]

@@ -4,12 +4,17 @@ import { useAuth } from "../../auth/AuthContext";
 import { usePolicy } from "../../policy/PolicyContext";
 import { listen } from "@tauri-apps/api/event";
 import { stillRunning, RUNNING_POLL_MS } from "../../launch/runningPhase";
-import { getInstallStatus, pickInstallPath, isGameRunning, launchedGameState, secureLaunch, setLauncherMinimized, queuePoll, queueLeave, checkRuntimeUpdate, installRuntimeUpdate, getGameManifest, forgetWrongGameFolder, downloadGame, drClaim, drChoiceStatus, pickDrKeyFile, setDrKey, type DrClaimStatus, type InstallStatus, type GameManifest, type GameDownloadProgress } from "../../api/tauri";
+import { getInstallStatus, pickInstallPath, isGameRunning, launchedGameState, secureLaunch, setLauncherMinimized, queuePoll, queueLeave, checkRuntimeUpdate, installRuntimeUpdate, getGameManifest, forgetWrongGameFolder, downloadGame, drClaim, drChoiceStatus, drSkip, pickDrKeyFile, setDrKey, type DrClaimStatus, type InstallStatus, type GameManifest, type GameDownloadProgress } from "../../api/tauri";
 import { sanitizeError } from "../../lib/sanitize";
 import { downloadButtonLabel, downloadNeedsLine } from "../../lib/downloadInfo";
+import { announceIfLauncherOutdated } from "../../lib/launcherOutdated";
 import { isWrongFolderMessage, OWN_DOWNLOAD_REFUSED_TEXT, WRONG_FOLDER_BUTTON } from "../../lib/wrongFolder";
-import { viewFor, viewForClaimCode, showClaimNotice, DR_TEXT, type DrChoiceAnswer, type DrChoiceView } from "../../lib/drChoice";
+import { viewFor, exhaustedView, viewForClaimCode, showClaimNotice, DR_TEXT, type DrChoiceAnswer, type DrChoiceView } from "../../lib/drChoice";
 import { DrChoiceScreen } from "./DrChoiceScreen";
+import { DR_PLAY_HOLD_LABEL, playHoldFor } from "../../lib/drPlayGuard";
+import { DrReclaimButton } from "./DrReclaimButton";
+import { StartFreshButton } from "./StartFreshButton";
+import { homePrimary, isDrGateMessage, DR_GATE_TEXT, type GameState } from "../../lib/drHomeState";
 import { DrQueuePanel } from "./DrQueuePanel";
 import { setLaunching } from "../../lib/launchState";
 import { PlayIcon } from "../../components/icons";
@@ -111,11 +116,28 @@ export function HomeTab() {
   // The one-time choice: asked once when this tab opens (and again only when the player presses "Check again").
   const [drChoice, setDrChoice] = useState<DrChoiceView | "loading">("loading");
   const drChoiceBlocks = drChoice === "loading" || (drChoice.kind === "screen" && drChoice.blocksPlay);
+  // A failed check is re-checked twice, a few seconds apart. Only then does the player get "Retry" and "Start fresh"
+  // with Play released, so a backend hiccup can never trap anyone for long.
+  const [drGate, setDrGate] = useState(false);
   const loadDrChoice = useCallback(() => {
-    drChoiceStatus()
-      .then((reply) => viewFor(reply))
-      .catch((): DrChoiceView => viewFor(null))
-      .then((view) => { if (mountedRef.current) setDrChoice(view); });
+    setDrGate(false);
+    const check = (): Promise<DrChoiceView> =>
+      drChoiceStatus().then((reply) => viewFor(reply)).catch((): DrChoiceView => viewFor(null));
+    const isFail = (v: DrChoiceView) => v.kind === "notice" && v.state === "dr_try_again_later";
+    const wait = () => new Promise<void>((r) => setTimeout(r, 3000));
+    check()
+      .then(async (v) => { for (let i = 0; i < 2 && isFail(v) && mountedRef.current; i++) { await wait(); v = await check(); } return v; })
+      .then((view) => { if (mountedRef.current) setDrChoice(isFail(view) ? exhaustedView() : view); });
+  }, []);
+  const [skipping, setSkipping] = useState(false);
+  const [skipError, setSkipError] = useState<string | null>(null);
+  const startFresh = useCallback(() => {
+    setSkipping(true);
+    setSkipError(null);
+    drSkip()
+      .then((reply) => { if (mountedRef.current) { setDrGate(false); setDrChoice(viewFor(reply)); } })
+      .catch(() => { if (mountedRef.current) setSkipError(DR_TEXT.startFreshFailed); })
+      .finally(() => { if (mountedRef.current) setSkipping(false); });
   }, []);
   useEffect(() => {
     if (account) loadDrChoice();
@@ -518,6 +540,8 @@ export function HomeTab() {
       if (mountedRef.current) {
         const text = sanitizeError(typeof err === "string" ? err : err instanceof Error ? err.message : undefined);
         if (isWrongFolderMessage(text)) setWrongFolder(true);
+        if (isDrGateMessage(text)) { setDrGate(true); setPhase({ status: "idle" }); return; }
+        announceIfLauncherOutdated(text);
         setPhase({ status: "error", message: text || "Dauntless didn't start. Make sure it isn't already open and that your antivirus hasn't removed any game files, then press Play again." });
       }
     } finally {
@@ -534,7 +558,13 @@ export function HomeTab() {
   const located = install?.located === true;
   const hasError = install?.error != null;
 
-  const canPlay = located && !hasError && install?.exeSha256 != null && phase.status === "idle" && !drChoiceBlocks;
+  // Play stays off while a Dauntless Revived transfer is queued, being fetched or not ready, and while that check
+  // has not succeeded: entering the game early can lock out the transfer. It comes back when the copy is ready, the
+  // player chose Start fresh, or the account has no Dauntless Revived link at all (never blocked).
+  const playHold = playHoldFor(drChoice, drState, drGate);
+  const gameState: GameState = download !== null ? "downloading" : !located ? "missing" : wrongFolder ? "wrong_folder" : hasError ? "needs_repair" : "ready";
+  const primary = homePrimary({ game: gameState, choice: drChoice, claimState: drState, gate: drGate });
+  const canPlay = located && !hasError && install?.exeSha256 != null && phase.status === "idle" && !drChoiceBlocks && playHold === null;
   const canLocate = phase.status === "idle" || phase.status === "error";
   const gameRunning = phase.status === "running";
   const canRepair = located && hasError && !gameRunning && (phase.status === "idle" || phase.status === "error");
@@ -585,7 +615,7 @@ export function HomeTab() {
         </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-5">
-          {(canPlay || queued || phase.status === "requestingSession" || phase.status === "launching" || (busy && located && !hasError && !download)) && !gameRunning && (
+          {(canPlay || (located && playHold !== null) || queued || phase.status === "requestingSession" || phase.status === "launching" || (busy && located && !hasError && !download)) && !gameRunning && (
             // The Play sigil: a round button that breathes while ready, spins while working, and shows the queue place.
             <button
               onClick={handlePlay}
@@ -596,7 +626,7 @@ export function HomeTab() {
               }`}
             >
               <span aria-hidden className="absolute inset-[-7px] rounded-full ring-1 ring-glow/40" />
-              {!canPlay && (
+              {!canPlay && playHold === null && (
                 <span
                   aria-hidden
                   className="sigil-spin absolute inset-[-7px] rounded-full border-2 border-transparent border-t-glow border-r-glow/40"
@@ -612,6 +642,8 @@ export function HomeTab() {
                   <PlayIcon className="h-7 w-7" />
                   <span className="text-[13px] font-semibold tracking-wide">Play</span>
                 </span>
+              ) : playHold !== null ? (
+                <span className="px-3 text-center text-[12px] font-semibold leading-tight text-on-ink/90">{DR_PLAY_HOLD_LABEL[playHold]}</span>
               ) : (
                 <span className="text-[12px] font-medium text-on-ink/85">Starting…</span>
               )}
@@ -689,7 +721,16 @@ export function HomeTab() {
               </button>
             )}
 
-            {drChoice !== "loading" && drChoice.kind === "notice" && drChoice.state === "dr_not_copied_yet" && (
+            {primary === "dr_gate" && (
+              <div className="max-w-[44ch] text-[13px] text-text-muted">
+                <p className="text-text">{DR_GATE_TEXT}</p>
+                <div className="mt-2 flex flex-wrap items-start gap-4">
+                  <button onClick={() => { setDrChoice("loading"); loadDrChoice(); }} className="underline">{DR_TEXT.tryAgainButton}</button>
+                  <StartFreshButton onConfirm={startFresh} busy={skipping} error={skipError} />
+                </div>
+              </div>
+            )}
+            {drChoice !== "loading" && primary === "dr_queue" && typeof drChoice !== "string" && drChoice.kind === "notice" && (
               // The line panel sits beside the headline (over the artwork), not under it, so it is in view without scrolling.
               <div className="absolute right-12 top-3 z-10 w-[320px] rounded-2xl bg-black/70 backdrop-blur-sm">
                 <DrQueuePanel
@@ -699,15 +740,21 @@ export function HomeTab() {
                 />
               </div>
             )}
-            {drChoice !== "loading" && drChoice.kind === "notice" && drChoice.state !== "dr_not_copied_yet" && (
+            {drChoice !== "loading" && primary === "dr_notice" && typeof drChoice !== "string" && drChoice.kind === "notice" && (
               <div className="max-w-[44ch] text-[13px] text-text-muted">
                 <p>{drChoice.text}</p>
+                {drChoice.state === "dr_has_progress" && !drChoice.exhausted && <DrReclaimButton onStarted={() => { setDrChoice("loading"); loadDrChoice(); }} />}
                 {drChoice.retry && (
                   <button onClick={() => { setDrChoice("loading"); loadDrChoice(); }} className="mt-1 underline">{DR_TEXT.tryAgainButton}</button>
                 )}
+                {drChoice.exhausted && (
+                  <>
+                    <span className="ml-4 mt-1 inline-block align-top"><StartFreshButton onConfirm={startFresh} busy={skipping} error={skipError} /></span>
+                  </>
+                )}
               </div>
             )}
-            {showClaimNotice(drChoice) && (drState === "not_copied_yet" || drState === "transfers_ended" || drState === "try_later" || drState === "declined") && (() => {
+            {primary === "dr_claim" && showClaimNotice(drChoice) && (drState === "not_copied_yet" || drState === "transfers_ended" || drState === "try_later" || drState === "declined") && (() => {
               const v = viewForClaimCode(drState);
               return v && v.kind === "notice" ? (
                 <div className="max-w-[44ch] text-[13px] text-text-muted">
@@ -716,13 +763,13 @@ export function HomeTab() {
                 </div>
               ) : null;
             })()}
-            {drState === "ported" && (
-              <p className="text-[13px] text-text">Your Dauntless Revived progress is ready. Fully close the game if it is open, then press Play so it is applied.</p>
+            {primary === "dr_claim" && drState === "ported" && (
+              <p className="text-[13px] text-text">Your progress is ready. Fully close the game if it is open, then press Play so it is applied.</p>
             )}
-            {(drState === "fetching" || drState === "wait") && (
+            {primary === "dr_claim_fetching" && (
               <p className="animate-pulse text-[13px] text-text-muted [animation-duration:1.5s]">Fetching your Dauntless Revived save…</p>
             )}
-            {drState === "not_found" && (
+            {primary === "dr_claim" && drState === "not_found" && (
               <div className="max-w-[44ch] text-[13px] text-text-muted">
                 <p>No Dauntless Revived account found for the keys on this PC. Check your key file in Documents\Dauntless Revived\Account Keys, or start fresh.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -732,7 +779,7 @@ export function HomeTab() {
                 {drKeyLink}
               </div>
             )}
-            {(drState === "no_match" || drState === "no_key") && (
+            {primary === "dr_claim" && (drState === "no_match" || drState === "no_key") && (
               <div className="max-w-[44ch] text-[13px] text-text-muted">
                 <p>
                   We couldn't find your Dauntless Revived account. Open the Dauntless Revived Discord bot, run /key link, then{" "}
@@ -741,16 +788,17 @@ export function HomeTab() {
                 {drKeyLink}
               </div>
             )}
-            {drState === "has_progress" && !drConfirming && (
+            {primary === "dr_claim" && drState === "has_progress" && !drConfirming && (
               <div className="max-w-[44ch] text-[13px] text-text-muted">
                 <p>This Ramsgate Reborn account already has progress. Which would you like to keep?</p>
+                <DrReclaimButton onStarted={() => void runDrClaim()} />
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button onClick={() => setDrState(null)} className="underline">Keep my Ramsgate Reborn progress</button>
                   <button onClick={() => setDrConfirming(true)} className="underline">Replace it with my Dauntless Revived progress</button>
                 </div>
               </div>
             )}
-            {drState === "has_progress" && drConfirming && (
+            {primary === "dr_claim" && drState === "has_progress" && drConfirming && (
               <div className="max-w-[44ch] text-[13px] text-text-muted">
                 <p>Your current Ramsgate Reborn progress will be removed from this account. Staff keep a backup, but you can't undo this yourself. Replace it?</p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -759,15 +807,15 @@ export function HomeTab() {
                 </div>
               </div>
             )}
-            {drState === "in_game" && (
+            {primary === "dr_claim" && drState === "in_game" && (
               <p className="text-[13px] text-text-muted">
                 Your account is online in the game. Close the game first and <button onClick={() => void runDrClaim()} className="underline">try again</button>.
               </p>
             )}
-            {drState === "not_ready" && (
+            {primary === "dr_claim" && drState === "not_ready" && (
               <p className="text-[13px] text-text-muted">Moving Dauntless Revived progress isn't open yet. Check back soon.</p>
             )}
-            {drState === "error" && (
+            {primary === "dr_claim" && drState === "error" && (
               <p className="text-[13px] text-text-muted">
                 Couldn't check your Dauntless Revived account right now. <button onClick={() => void runDrClaim()} className="underline">Retry</button>
               </p>

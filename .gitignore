@@ -32,3 +32,9 @@ dist_locked_old/
 *.njsproj
 *.sln
 *.sw?
+
+target/
+*.sig
+*.key
+*.pem
+*.password
