@@ -10,6 +10,8 @@
   <a href="https://afterlifeinteractive.com/ramsgate-reborn">Website</a>
   &nbsp;&middot;&nbsp;
   <a href="https://support.afterlifeinteractive.com/">Support</a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://discord.gg/dauntlessrevived">Discord</a>
 </p>
 
 <p align="center">
@@ -24,6 +26,9 @@ official servers shut down on 30 May 2025. This is its launcher: you sign in wit
 game install, keeps itself up to date and starts the game. The game server is run by us and is not in this
 repository, and no game files are either. We are an unofficial fan project and are not affiliated with
 Phoenix Labs, Epic Games or Forte Labs.
+
+**Status:** Dauntless 1.12 is open to everyone. Work on Dauntless 1.14.7 is in progress, with no release date
+yet. News goes out in the [Discord](https://discord.gg/dauntlessrevived) first.
 
 <table>
   <tr>
@@ -161,7 +166,7 @@ anyway. To check you have the real file, compare its SHA-256 with the hash in th
 PowerShell, with the name of the file you downloaded:
 
 ```powershell
-Get-FileHash .\RamsgateReborn-main-0.2.50-setup.exe -Algorithm SHA256
+Get-FileHash .\RamsgateReborn-main-<version>-setup.exe -Algorithm SHA256
 ```
 
 The launcher source is in this repository.
